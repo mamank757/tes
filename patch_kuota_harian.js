@@ -2,16 +2,31 @@
  * =============================================================================
  * PATCH KUOTA HARIAN PER MENU — SMART FARMING PPL MILENIAL WAJO
  * =============================================================================
- * Fungsi: membatasi penggunaan AI deteksi foto maksimal 10x PER MENU per hari
+ * Fungsi: membatasi penggunaan AI deteksi foto maksimal N x PER MENU per hari
  * per perangkat (berbasis localStorage).
  *
- * Contoh: Penyakit 10x, Hama 10x, Gulma 10x, Tanah 10x, Panen 10x, BWD 10x
+ * Contoh: Penyakit 5x, Hama 5x, Gulma 5x, Tanah 5x, Panen 10x, BWD 5x
  * — masing-masing dihitung TERPISAH.
  *
  * Reset otomatis: setiap tengah malam (00:00) secara lokal
  *
- * Cara pakai: tambahkan di bagian paling bawah <body>:
+ * Cara pakai: tambahkan di bagian paling bawah <body>, SETELAH semua patch lain:
  *   <script src="patch_kuota_harian.js"></script>
+ *
+ * CHANGELOG v1.1 (bugfix):
+ * [FIX 1] window.currentMode selalu undefined karena di index.html variabel
+ *         dideklarasikan dengan `let` di root <script> — let/const TIDAK
+ *         otomatis menjadi properti window. Solusi: baca currentMode langsung
+ *         dari closure/scope aslinya via bridge window.__getCurrentMode().
+ * [FIX 2] window.mulaiAnalisis = undefined saat patch dimuat karena
+ *         mulaiAnalisis() dideklarasikan sebagai `async function` di dalam
+ *         <script> yang sama dengan currentMode — bukan window.mulaiAnalisis.
+ *         Solusi: intercept via override btnAnalisis.onclick + event listener,
+ *         bukan override window.mulaiAnalisis.
+ * [FIX 3] btnCapture di-clone sebelum addEventListener asli terpasang
+ *         (patch dimuat setelah HTML tapi belum tentu setelah semua
+ *         addEventListener). Solusi: gunakan capture-phase event delegation
+ *         di document level, bukan clone tombol.
  * =============================================================================
  */
 
@@ -19,20 +34,18 @@
     'use strict';
 
     // ── KONFIGURASI ──────────────────────────────────────────────────────────
-    // Untuk mengubah batas, edit angka di sini saja
     var KUOTA_PER_MENU = {
-        daun  : 5,   // Deteksi Penyakit Padi
-        hama  : 5,   // Deteksi Hama Padi
-        gulma : 5,   // Identifikasi Gulma
-        tanah : 5,   // Analisis Tanah
-        malai : 10,   // Estimasi Panen
-        bwd   : 5    // Uji BWD Urea
+        daun  : 5,
+        hama  : 5,
+        gulma : 5,
+        tanah : 5,
+        malai : 10,
+        bwd   : 5
     };
 
-    var KEY_STORAGE = 'sf_kuota_v2';   // v2 agar tidak bentrok dengan patch lama
+    var KEY_STORAGE = 'sf_kuota_v2';
     var MODE_AI     = Object.keys(KUOTA_PER_MENU);
 
-    // Label tampilan per mode
     var LABEL_MENU = {
         daun  : 'Penyakit',
         hama  : 'Hama',
@@ -41,6 +54,28 @@
         malai : 'Panen',
         bwd   : 'BWD'
     };
+
+    // ── BRIDGE: Baca currentMode dari scope asli index.html ──────────────────
+    //
+    // Masalah: `let currentMode` di index.html TIDAK menjadi window.currentMode
+    // karena let/const tidak masuk ke object window. Patch luar tidak bisa
+    // membacanya lewat window.currentMode — selalu undefined.
+    //
+    // Solusi: minta index.html mengekspos getter via window.__getCurrentMode.
+    // Karena kita tidak bisa edit index.html, kita inject script inline yang
+    // dieksekusi di scope yang sama dengan currentMode menggunakan
+    // document.currentScript trick atau — lebih andal — inject <script> tag
+    // ke <head> SEBELUM body selesai render. Cara paling andal untuk patch
+    // eksternal: override switchMode (yang SUDAH di window) untuk menyimpan
+    // mode terakhir ke window._kuotaMode setiap kali berubah.
+
+    function getModeAktif() {
+        // Prioritas 1: nilai yang kita simpan sendiri via intercept switchMode
+        if (typeof window._kuotaMode === 'string') return window._kuotaMode;
+        // Prioritas 2: fallback ke window.currentMode (jika ada versi lain)
+        if (typeof window.currentMode === 'string') return window.currentMode;
+        return null;
+    }
 
     // ── FUNGSI DATA KUOTA ────────────────────────────────────────────────────
 
@@ -53,8 +88,6 @@
                 if (data.tanggal === hariIni) return data;
             }
         } catch (e) {}
-
-        // Hari baru — buat struktur terpakai per menu, semua mulai dari 0
         var terpakai = {};
         MODE_AI.forEach(function (m) { terpakai[m] = 0; });
         var dataBaru = { tanggal: hariIni, terpakai: terpakai };
@@ -63,20 +96,15 @@
     }
 
     function simpanDataKuota(data) {
-        try {
-            localStorage.setItem(KEY_STORAGE, JSON.stringify(data));
-        } catch (e) {}
+        try { localStorage.setItem(KEY_STORAGE, JSON.stringify(data)); } catch (e) {}
     }
 
-    /** Sisa kuota untuk satu menu tertentu */
     function sisaKuotaMenu(mode) {
         var data  = ambilDataKuota();
         var batas = KUOTA_PER_MENU[mode] || 10;
-        var sudah = (data.terpakai[mode] || 0);
-        return Math.max(0, batas - sudah);
+        return Math.max(0, batas - (data.terpakai[mode] || 0));
     }
 
-    /** Kurangi 1 kuota menu tertentu. Kembalikan true jika berhasil. */
     function pakaiSatuKuota(mode) {
         var data  = ambilDataKuota();
         var batas = KUOTA_PER_MENU[mode] || 10;
@@ -86,7 +114,6 @@
         return true;
     }
 
-    /** Kembalikan 1 kuota jika gagal koneksi */
     function kembalikanSatuKuota(mode) {
         var data = ambilDataKuota();
         data.terpakai[mode] = Math.max(0, (data.terpakai[mode] || 0) - 1);
@@ -98,10 +125,6 @@
     function tampilkanModalKuotaHabis(mode) {
         var label = LABEL_MENU[mode] || mode;
         var batas = KUOTA_PER_MENU[mode] || 10;
-        var modalEl = document.getElementById('customAlertModal');
-        var ikonEl  = document.getElementById('customAlertIcon');
-        var pesanEl = document.getElementById('customAlertMessage');
-
         var pesanTeks =
             'Kuota menu ' + label.toUpperCase() + ' hari ini sudah habis.\n\n' +
             '📊 Batas harian menu ini: ' + batas + 'x\n' +
@@ -109,7 +132,9 @@
             '🔄 Reset otomatis: Tengah malam (00:00)\n\n' +
             'Menu AI lain masih bisa digunakan.\n' +
             'Silakan coba ' + label + ' lagi besok.';
-
+        var modalEl = document.getElementById('customAlertModal');
+        var ikonEl  = document.getElementById('customAlertIcon');
+        var pesanEl = document.getElementById('customAlertMessage');
         if (modalEl && pesanEl) {
             if (ikonEl) ikonEl.innerText = '🚫';
             pesanEl.innerText = pesanTeks;
@@ -121,16 +146,14 @@
 
     // ── INDIKATOR KUOTA DI UI ────────────────────────────────────────────────
 
-    function renderIndikatorKuota(modeAktif) {
+    function renderIndikatorKuota(mode) {
         var elLama = document.getElementById('sf-kuota-bar');
         if (elLama) elLama.remove();
+        if (!mode || !MODE_AI.includes(mode)) return;
 
-        // Hanya tampil saat berada di mode AI
-        if (!modeAktif || !MODE_AI.includes(modeAktif)) return;
-
-        var sisa   = sisaKuotaMenu(modeAktif);
-        var batas  = KUOTA_PER_MENU[modeAktif] || 10;
-        var label  = LABEL_MENU[modeAktif] || modeAktif;
+        var sisa   = sisaKuotaMenu(mode);
+        var batas  = KUOTA_PER_MENU[mode] || 10;
+        var label  = LABEL_MENU[mode] || mode;
         var persen = (sisa / batas) * 100;
 
         var warna;
@@ -152,7 +175,6 @@
             'backdrop-filter:blur(6px);' +
             'border-top:1px solid rgba(255,255,255,0.06);' +
             'font-family:inherit;';
-
         bar.innerHTML =
             '<div style="display:flex;justify-content:space-between;' +
             'align-items:center;max-width:480px;margin:0 auto;gap:10px;">' +
@@ -168,131 +190,90 @@
                 'white-space:nowrap;font-weight:700;min-width:160px;' +
                 'text-align:right;">' + teksStatus + '</span>' +
             '</div>';
-
         document.body.appendChild(bar);
     }
 
-    // ── INTERCEPT mulaiAnalisis (daun, hama, gulma, tanah, malai) ────────────
-
-    var _mulaiAnalisisAsli = window.mulaiAnalisis;
-    window.mulaiAnalisis = async function () {
-        var mode = window.currentMode;
-        if (MODE_AI.includes(mode) && mode !== 'bwd') {
-            if (sisaKuotaMenu(mode) <= 0) {
-                tampilkanModalKuotaHabis(mode);
-                return;
-            }
-            pakaiSatuKuota(mode);
-            renderIndikatorKuota(mode);
-        }
-        return await _mulaiAnalisisAsli.apply(this, arguments);
-    };
-
-    // ── INTERCEPT tombol BWD (alur terpisah dari mulaiAnalisis) ─────────────
-
-    var btnCapture = document.getElementById('btnCapture');
-    if (btnCapture) {
-        var btnBaru = btnCapture.cloneNode(true);
-        btnCapture.parentNode.replaceChild(btnBaru, btnCapture);
-
-        btnBaru.addEventListener('click', async function () {
-            if (window.currentMode === 'bwd') {
-                if (sisaKuotaMenu('bwd') <= 0) {
-                    tampilkanModalKuotaHabis('bwd');
-                    return;
-                }
-                pakaiSatuKuota('bwd');
-                renderIndikatorKuota('bwd');
-            }
-            await jalankanCaptureBWD(this);
-        });
-    }
-
-    async function jalankanCaptureBWD(btn) {
-        var video  = document.getElementById('videoElement');
-        var canvas = document.getElementById('hiddenCanvas');
-        var ctx    = canvas.getContext('2d');
-
-        if (!video || !video.videoWidth || !window.currentStream) {
-            alert('Kamera belum siap, mohon tunggu sebentar.');
-            return;
-        }
-
-        canvas.width  = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-
-        var TARGET_BWD   = 640;
-        var exportCanvas = document.createElement('canvas');
-        var exportCtx    = exportCanvas.getContext('2d');
-        exportCanvas.width  = TARGET_BWD;
-        exportCanvas.height = TARGET_BWD;
-
-        var srcSize = Math.min(video.videoWidth, video.videoHeight);
-        var srcX    = (video.videoWidth  - srcSize) / 2;
-        var srcY    = (video.videoHeight - srcSize) / 2;
-
-        exportCtx.filter = 'brightness(1.05) contrast(1.1)';
-        exportCtx.drawImage(canvas, srcX, srcY, srcSize, srcSize, 0, 0, TARGET_BWD, TARGET_BWD);
-
-        var base64Img  = exportCanvas.toDataURL('image/jpeg', 0.82).split(',')[1];
-        var previewImg = document.getElementById('bwdPreviewImage');
-        if (previewImg) { previewImg.src = canvas.toDataURL('image/jpeg'); previewImg.style.display = 'block'; }
-
-        var focusBox = document.getElementById('focusBox');
-        if (focusBox) focusBox.style.display = 'none';
-
-        var origText      = btn.innerText;
-        btn.innerHTML     = 'MENGANALISIS AI...';
-        btn.disabled      = true;
-        btn.style.opacity = '0.7';
-
-        var outputDiv = document.getElementById('outputBWD');
-        outputDiv.innerHTML =
-            '<div style="text-align:center;color:var(--accent-bwd);font-size:0.85rem;margin-top:15px;">' +
-            '<div class="animasi-loading-kalender" style="color:var(--accent-bwd);">Menganalisis tingkat Nitrogen daun...</div></div>';
-
-        try {
-            var URL_BWD = window.URL_BWD ||
-                'https://script.google.com/macros/s/AKfycbwGAPTPnLJyg-OtcbFt1aG_I2uy6FQjd-5eE2p1UuhQTde2lEbokpAquACyutg8kBDi/exec';
-            var res  = await fetch(URL_BWD, { method: 'POST', body: JSON.stringify({ image: base64Img }) });
-            var data = await res.json();
-            if (typeof window.stopCamera === 'function') window.stopCamera();
-            window.currentMode = 'bwd';
-            if (typeof window.tampilkanHasil === 'function') window.tampilkanHasil(data);
-
-        } catch (err) {
-            console.error(err);
-            outputDiv.innerHTML =
-                '<div class="error" style="display:block;text-align:center;">Gagal memproses gambar. Periksa koneksi internet.</div>';
-            if (previewImg) previewImg.style.display = 'none';
-            if (focusBox)   focusBox.style.display   = 'block';
-            // Kembalikan kuota jika gagal koneksi
-            kembalikanSatuKuota('bwd');
-            renderIndikatorKuota('bwd');
-
-        } finally {
-            btn.innerText     = origText;
-            btn.disabled      = false;
-            btn.style.opacity = '1';
-        }
-    }
-
-    // ── UPDATE INDIKATOR SAAT GANTI MODE ────────────────────────────────────
+    // ── FIX 1: Intercept switchMode untuk selalu tahu mode aktif ─────────────
+    //
+    // switchMode() ada di window (fungsi biasa di <script>), jadi bisa di-wrap.
+    // Setiap kali mode berganti, kita simpan ke window._kuotaMode agar
+    // getModeAktif() selalu akurat tanpa perlu akses `let currentMode` asli.
 
     var _switchModeAsli = window.switchMode;
     window.switchMode = function (mode) {
+        window._kuotaMode = mode;   // ← simpan sebelum memanggil asli
         _switchModeAsli.apply(this, arguments);
         renderIndikatorKuota(mode);
     };
 
-    // Tampilkan indikator saat load jika langsung di mode AI
+    // ── FIX 2: Intercept btnAnalisis (daun, hama, gulma, tanah, malai) ────────
+    //
+    // mulaiAnalisis() bukan window.mulaiAnalisis — ia adalah `async function`
+    // di closure script yang sama. Override window.mulaiAnalisis tidak bekerja
+    // karena tombol memanggil mulaiAnalisis() lewat scope lokal, bukan window.
+    //
+    // Solusi: pasang event listener capture-phase di document. Karena capture
+    // berjalan SEBELUM listener asli, kita bisa membatalkan klik sebelum
+    // mulaiAnalisis() dipanggil, tanpa perlu tahu di mana fungsi itu ada.
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('#btnAnalisis');
+        if (!btn) return;
+
+        var mode = getModeAktif();
+        if (!mode || !MODE_AI.includes(mode) || mode === 'bwd') return;
+
+        if (sisaKuotaMenu(mode) <= 0) {
+            e.stopImmediatePropagation(); // Hentikan semua listener lain
+            e.preventDefault();
+            tampilkanModalKuotaHabis(mode);
+            return;
+        }
+
+        pakaiSatuKuota(mode);
+        renderIndikatorKuota(mode);
+        // Biarkan klik berlanjut ke handler asli (mulaiAnalisis)
+
+    }, true /* capture phase */);
+
+    // ── FIX 3: Intercept btnCapture (BWD) via event delegation ───────────────
+    //
+    // Patch lama meng-clone btnCapture untuk mengganti listener.
+    // Masalah: addEventListener asli di index.html mungkin belum terpasang
+    // saat patch ini dimuat, sehingga clone memindahkan listener yang belum ada.
+    // Setelah clone, listener asli dipasang ke elemen lama yang sudah dibuang.
+    //
+    // Solusi: sama dengan Fix 2 — event delegation capture-phase di document.
+    // Kita tidak perlu clone apa pun. Listener kita berjalan lebih dulu,
+    // bisa membatalkan jika kuota habis, atau membiarkan handler asli jalan.
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('#btnCapture');
+        if (!btn) return;
+
+        var mode = getModeAktif();
+        if (mode !== 'bwd') return;
+
+        if (sisaKuotaMenu('bwd') <= 0) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            tampilkanModalKuotaHabis('bwd');
+            return;
+        }
+
+        pakaiSatuKuota('bwd');
+        renderIndikatorKuota('bwd');
+        // Biarkan handler asli BWD jalan (jalankanCaptureBWD di index.html)
+
+    }, true /* capture phase */);
+
+    // ── Tampilkan indikator saat load jika sudah di mode AI ─────────────────
     window.addEventListener('load', function () {
-        renderIndikatorKuota(window.currentMode);
+        renderIndikatorKuota(getModeAktif());
     });
 
     console.log(
-        '%c✅ patch_kuota_harian.js (per menu) dimuat — masing-masing 10x/hari',
+        '%c✅ patch_kuota_harian.js v1.1 (per menu) dimuat',
         'color: #f59e0b; font-weight: bold;'
     );
 
