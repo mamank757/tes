@@ -1489,11 +1489,23 @@ body.light-mode .harga-table td { color: #334155 !important; border-bottom: 1px 
                     </div>
 
                     <div class="info-box" style="border-left-color: var(--accent-green); padding: 6px; margin-top: 16px; overflow: hidden;">
-                        <strong style="margin-left: 10px; margin-top: 10px;">🛰️ Analisis Satelit Mikro Spasial Lahan</strong>
-                        <div style="position: relative; width: 100%; height: 400px; margin-top: 10px; border-radius: 16px; overflow: hidden; border: 1px solid var(--card-border);">
-                            <iframe id="radarMap" width="100%" height="100%" frameborder="0" style="border:0; background: #060913;" allowfullscreen></iframe>
-                        </div>
-                    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 10px 6px 10px;">
+        <strong>🛰️ Analisis Satelit Mikro Spasial Lahan</strong>
+        <button id="btnFullscreenPeta" onclick="masukFullscreenPeta()">
+            ⛶ FULLSCREEN
+        </button>
+    </div>
+    <!-- Placeholder — wrapper asli akan dipindah ke sini saat keluar fullscreen -->
+    <div id="placeholderRadarMap"></div>
+    <div id="wrapperRadarMap">
+        <iframe id="radarMap" width="100%" height="100%"
+            frameborder="0"
+            style="border:0; background:#060913; display:block;"
+            allowfullscreen
+            allow="fullscreen">
+        </iframe>
+    </div>
+</div>
                       
                     <div class="info-box" id="boxBlastRisk" style="border-left-color: var(--red-alert); margin-top: 16px;">
                         <strong>⚠️ Risiko Penyakit Tanaman (Blast)</strong><br>
@@ -6056,5 +6068,83 @@ async function cariHargaPestisida() {
     <script src="patch_perbaikan_ilmiah.js"></script>
     <script src="patch_kuota_harian.js"></script>
     <script src="patch_curah_hujan_era5.js"></script>
+    <script src="patch_peta.js"></script>
+    <style>
+    #wrapperRadarMap {
+        position: relative;
+        width: 100%;
+        height: 700px;
+        margin-top: 5px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--card-border);
+        transition: none;
+    }
+
+    /* Kelas fullscreen — diterapkan setelah elemen dipindah ke body */
+    #wrapperRadarMap.is-fullscreen {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100dvh !important;
+        height: 100vh !important;
+        z-index: 99999 !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background: #060913;
+        border: none !important;
+    }
+
+    #wrapperRadarMap.is-fullscreen iframe {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* Tombol tutup fullscreen — selalu di body, selalu di atas */
+    #btnTutupFullscreenPeta {
+        display: none;
+        position: fixed;
+        top: 14px;
+        right: 14px;
+        z-index: 100000;
+        background: rgba(239, 68, 68, 0.92);
+        border: none;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 0.5px;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    #btnTutupFullscreenPeta.visible {
+        display: block;
+    }
+
+    /* Tombol fullscreen di header */
+    #btnFullscreenPeta {
+        background: rgba(0,255,136,0.12);
+        border: 1px solid rgba(0,255,136,0.4);
+        color: #00ff88;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 0.5px;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        transition: all 0.2s ease;
+    }
+</style>
+
+<!-- Tombol tutup — langsung di body, bukan di dalam card -->
+<button id="btnTutupFullscreenPeta" onclick="keluarFullscreenPeta()">✕ TUTUP PETA</button>
 </body>
 </html>
