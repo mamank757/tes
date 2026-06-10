@@ -13,6 +13,15 @@
  * Cara pakai: tambahkan di bagian paling bawah <body>, SETELAH semua patch lain:
  *   <script src="patch_kuota_harian.js"></script>
  *
+ * CHANGELOG v1.2 (perbaikan lanjutan):
+ * [FIX BARU] Refund kuota otomatis saat analisis gagal/timeout.
+ *            pakaiSatuKuota() dipanggil sebelum mulaiAnalisis(), sehingga
+ *            jika server error atau timeout dalam 30 detik, kuota dikembalikan
+ *            otomatis via kembalikanSatuKuota(). Berlaku untuk semua mode
+ *            termasuk BWD.
+ *            Mekanisme: intercept tampilkanHasil untuk konfirmasi sukses
+ *            (batalkan timer refund), dan setTimeout 30s untuk rollback gagal.
+ *
  * CHANGELOG v1.1 (bugfix):
  * [FIX 1] window.currentMode selalu undefined karena di index.html variabel
  *         dideklarasikan dengan `let` di root <script> — let/const TIDAK
@@ -162,33 +171,29 @@
         else if (sisa > 0) warna = '#ef4444';
         else               warna = '#7f1d1d';
 
-        var teksStatus;
-        if      (sisa === 0) teksStatus = label + ': Habis — reset tengah malam';
-        else if (sisa <= 3)  teksStatus = label + ': Sisa ' + sisa + 'x — hampir habis!';
-        else                 teksStatus = label + ': Sisa ' + sisa + 'x dari ' + batas + 'x';
+       var teksStatus;
+        // Dibuat lebih ringkas agar aman di layar HP
+        if      (sisa === 0) teksStatus = label + ': Habis';
+        else if (sisa <= 3)  teksStatus = label + ': Sisa ' + sisa + ' (Hampir habis!)';
+        else                 teksStatus = label + ': Sisa ' + sisa + ' dari ' + batas;
 
         var bar = document.createElement('div');
         bar.id  = 'sf-kuota-bar';
         bar.style.cssText =
             'position:fixed;bottom:48px;left:0;right:0;z-index:500;' +
-            'padding:6px 16px;background:rgba(11,21,40,0.92);' +
+            'padding:6px 12px;background:rgba(11,21,40,0.92);' +
             'backdrop-filter:blur(6px);' +
             'border-top:1px solid rgba(255,255,255,0.06);' +
             'font-family:inherit;';
+            
+        // [PERBAIKAN CSS] Mengurangi min-width dan memperpendek teks kiri
         bar.innerHTML =
-            '<div style="display:flex;justify-content:space-between;' +
-            'align-items:center;max-width:480px;margin:0 auto;gap:10px;">' +
-                '<span style="font-size:11px;color:#94a3b8;white-space:nowrap;' +
-                'font-weight:600;letter-spacing:0.5px;">📷 KUOTA DETEKSI HARI INI</span>' +
-                '<div style="flex:1;height:6px;background:rgba(255,255,255,0.08);' +
-                'border-radius:3px;overflow:hidden;">' +
-                    '<div style="height:100%;width:' + persen + '%;' +
-                    'background:' + warna + ';border-radius:3px;' +
-                    'transition:width 0.4s ease;"></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;max-width:480px;margin:0 auto;gap:8px;">' +
+                '<span style="font-size:11px;color:#94a3b8;white-space:nowrap;font-weight:600;">📷 KUOTA ANDA HARI INI:</span>' +
+                '<div style="flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+                    '<div style="height:100%;width:' + persen + '%;background:' + warna + ';border-radius:3px;transition:width 0.4s ease;"></div>' +
                 '</div>' +
-                '<span style="font-size:11px;color:' + warna + ';' +
-                'white-space:nowrap;font-weight:700;min-width:160px;' +
-                'text-align:right;">' + teksStatus + '</span>' +
+                '<span style="font-size:11px;color:' + warna + ';font-weight:700;text-align:right;">' + teksStatus + '</span>' +
             '</div>';
         document.body.appendChild(bar);
     }
@@ -215,6 +220,47 @@
     // Solusi: pasang event listener capture-phase di document. Karena capture
     // berjalan SEBELUM listener asli, kita bisa membatalkan klik sebelum
     // mulaiAnalisis() dipanggil, tanpa perlu tahu di mana fungsi itu ada.
+    //
+    // [FIX REFUND KUOTA] pakaiSatuKuota() dipanggil sebelum analisis berjalan.
+    // Jika server error / timeout terjadi, kuota sudah terpotong tanpa hasil.
+    // Solusi: intercept tampilkanHasil untuk deteksi sukses, dan intercept
+    // elemen error/alert untuk deteksi gagal, lalu panggil kembalikanSatuKuota().
+    // Karena kita tidak punya akses ke try-catch mulaiAnalisis asli, cara
+    // paling andal adalah memantau apakah #result muncul dalam timeout wajar.
+
+    // Simpan mode dan status refund sementara
+    var _pendingRefund = { mode: null, aktif: false, timer: null };
+
+    function batalRefundPending() {
+        if (_pendingRefund.timer) clearTimeout(_pendingRefund.timer);
+        _pendingRefund = { mode: null, aktif: false, timer: null };
+    }
+
+    function aktifkanRefundPending(mode) {
+        if (_pendingRefund.timer) clearTimeout(_pendingRefund.timer);
+        _pendingRefund.mode  = mode;
+        _pendingRefund.aktif = true;
+        // Jika dalam 30 detik tidak ada hasil (tampilkanHasil dipanggil),
+        // anggap gagal dan kembalikan kuota
+        _pendingRefund.timer = setTimeout(function() {
+            if (_pendingRefund.aktif && _pendingRefund.mode) {
+                kembalikanSatuKuota(_pendingRefund.mode);
+                renderIndikatorKuota(_pendingRefund.mode);
+                console.log('[kuota] Refund otomatis: analisis timeout/gagal — mode:', _pendingRefund.mode);
+            }
+            _pendingRefund = { mode: null, aktif: false, timer: null };
+        }, 30000);
+    }
+
+    // Intercept tampilkanHasil untuk konfirmasi sukses → batalkan refund pending
+    var _tampilkanHasilAsliKuota = window.tampilkanHasil;
+    window.tampilkanHasil = function(data) {
+        // Analisis berhasil → batalkan refund pending (kuota sah dikonsumsi)
+        batalRefundPending();
+        if (typeof _tampilkanHasilAsliKuota === 'function') {
+            return _tampilkanHasilAsliKuota.apply(this, arguments);
+        }
+    };
 
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('#btnAnalisis');
@@ -232,6 +278,8 @@
 
         pakaiSatuKuota(mode);
         renderIndikatorKuota(mode);
+        // Aktifkan mekanisme refund jika analisis gagal/timeout
+        aktifkanRefundPending(mode);
         // Biarkan klik berlanjut ke handler asli (mulaiAnalisis)
 
     }, true /* capture phase */);
@@ -263,6 +311,8 @@
 
         pakaiSatuKuota('bwd');
         renderIndikatorKuota('bwd');
+        // Aktifkan mekanisme refund jika analisis BWD gagal/timeout
+        aktifkanRefundPending('bwd');
         // Biarkan handler asli BWD jalan (jalankanCaptureBWD di index.html)
 
     }, true /* capture phase */);
@@ -273,7 +323,7 @@
     });
 
     console.log(
-        '%c✅ patch_kuota_harian.js v1.1 (per menu) dimuat',
+        '%c✅ patch_kuota_harian.js v1.2 (per menu + refund otomatis) dimuat',
         'color: #f59e0b; font-weight: bold;'
     );
 
