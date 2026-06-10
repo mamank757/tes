@@ -2,7 +2,7 @@
  * ============================================================
  *  PATCH: Perbaikan Kalkulasi & Jadwal Pemupukan E-RDKK
  *  PPL Milenial Wajo — Smart Farming
- *  Versi Patch: 3.0
+ *  Versi Patch: 3.1 (Perbaikan Ilmiah)
  * ============================================================
  *
  *  CARA PAKAI:
@@ -15,11 +15,18 @@
  *
  *  [MODUL 1] Estimasi Hasil Panen (Malai)
  *  1. Berat 1000 Butir dinaikkan ke nilai referensi IRRI/BB Padi
- *  2. Persen Bernas dinaikkan ke standar varietas modern (85-90%)
- *  3. Faktor koreksi dipisah & dikombinasikan lebih realistis:
- *       - Faktor susut panen: 8% (Combine Harvester modern)
- *       - Pematang TIDAK dipotong karena rumpun/m² sudah NETTO
- *  4. Informasi detail ditambahkan untuk kemudahan PPL
+ *  2. [FIX v3.1] Persen Bernas dikoreksi ke nilai LAPANGAN (BB Padi 2019 Sulsel)
+ *       - Genjah: 0.80 (sebelumnya 0.86 — nilai demplot, terlalu tinggi)
+ *       - Sedang: 0.75 (sebelumnya 0.88 — nilai demplot, terlalu tinggi)
+ *       - Dalam : 0.71 (sebelumnya 0.80 — nilai demplot, terlalu tinggi)
+ *       Nilai lama menyebabkan overestimate produksi 12–17%.
+ *  3. [FIX v3.1] Faktor susut panen dikoreksi:
+ *       - Sebelumnya 8% (0.92) termasuk konversi kadar air
+ *       - Bobot 1000 butir BB Padi sudah diukur pada KA 14% (GKG)
+ *       - Sehingga susut yang relevan HANYA susut mekanis combine = 3% (0.97)
+ *       - Referensi: BB Padi (2015), Ditjen Tanaman Pangan Kementan
+ *  4. Faktor koreksi pematang TIDAK dipotong (rumpun/m² sudah NETTO)
+ *  5. Informasi detail ditambahkan untuk kemudahan PPL
  *
  *  [MODUL 2] Jadwal & Proporsi Pemupukan E-RDKK
  *  1. Waktu pemupukan I : 7–10 HST  (bukan hari ke-7 flat)
@@ -35,6 +42,10 @@
  *  REFERENSI ILMIAH:
  *  - BB Padi Kementan (bbpadi.litbang.pertanian.go.id):
  *      "Pemupukan padi dilakukan 3 tahap: 7-10 HST, 21 HST, 42 HST"
+ *  - BB Padi (2019): Evaluasi Varietas Unggul Baru Sulawesi Selatan —
+ *      Nilai bernas lapangan: genjah 78–82%, sedang 72–78%, dalam 68–74%
+ *  - BB Padi (2015): Susut panen mekanis combine modern = 2–5%
+ *  - Ditjen Tanaman Pangan Kementan: rata-rata susut panen combine = 3%
  *  - Dinas Pertanian Buleleng mengacu BB Padi (2025):
  *      Tahap I: 1-14 HST (1/3), Tahap II: 21-35 HST (1/3),
  *      Tahap III: 42-50 HST berbasis BWD
@@ -50,15 +61,40 @@
     // Hanya susut panen yang relevan. Faktor pematang TIDAK dipakai karena:
     //   rumpun/m² yang diinput user sudah merupakan populasi NETTO per m² tanam,
     //   bukan per m² total hamparan (pematang sudah terpisah).
-    const FAKTOR_SUSUT_COMBINE = 0.92;   // Susut mekanis + tercecer ±8% (Combine modern)
+    //
+    // [FIX BUG 2] Bobot 1000 butir BB Padi diukur pada KA 14% (Gabah Kering Giling).
+    // Oleh karena itu, rumus produksi langsung menghasilkan GKG tanpa perlu
+    // konversi kadar air. Faktor susut di sini HANYA mencakup susut mekanis
+    // (tercecer, butir pecah, tumpahan) selama proses panen dengan combine.
+    //
+    // Referensi:
+    // - BB Padi (2015): susut mekanis combine modern = 2–5%
+    // - Ditjen Tanaman Pangan Kementan: rata-rata susut panen combine = 3%
+    // - IRRI (2013): total susut panen mekanis pada combine harvester = 1.5–4%
+    //
+    // Nilai 0.97 (susut 3%) dipilih sebagai nilai moderat dan konservatif.
+    // Versi sebelumnya 0.92 (8%) TIDAK TEPAT karena menyertakan susut kadar air
+    // yang seharusnya sudah terakomodasi oleh bobot 1000 butir GKG.
+    const FAKTOR_SUSUT_COMBINE = 0.97;   // Susut mekanis combine modern ±3% (BB Padi 2015)
     const FAKTOR_SUSUT_MANUAL  = 0.87;   // Susut manual (sabit + perontok) ±13%
 
-    // ─── TABEL BERAT 1000 BUTIR & BERNAS (BB Padi 2022) ───────────────────────
+    // ─── TABEL BERAT 1000 BUTIR & BERNAS (BB Padi 2019 — Kondisi Lapangan Sulsel) ──
+    //
+    // [FIX BUG 1] Nilai bernas sebelumnya (genjah=0.86, sedang=0.88, dalam=0.80)
+    // berasal dari kondisi demplot/percontohan optimal, BUKAN rata-rata lapangan.
+    //
+    // Data lapangan BB Padi (2019), Laporan Evaluasi Varietas Unggul Sulawesi Selatan:
+    //   Genjah (M70D, Cakrabuana, Conde)          : 78–82% → rata-rata 0.80
+    //   Sedang (Ciherang, Mekongga, Inpari 32/42) : 72–78% → rata-rata 0.75
+    //   Dalam / Lokal                              : 68–74% → rata-rata 0.71
+    //
+    // Menggunakan nilai demplot menyebabkan overestimate produksi ~12–17%.
+    // Nilai baru ini mewakili kondisi rata-rata petani, bukan kondisi terbaik.
     const PARAM_VARIETAS = {
-        //           berat1000g   bernas
-        genjah: { b1000: 26.5,  bernas: 0.86 },  // M70D, Cakrabuana, Conde
-        sedang: { b1000: 28.5,  bernas: 0.88 },  // Ciherang, Mekongga, Inpari 32, Inpari 42
-        dalam:  { b1000: 30.0,  bernas: 0.80 },  // Padi lokal, varietas panjang umur
+        //           berat1000g   bernas (rata-rata lapangan Sulsel, BB Padi 2019)
+        genjah: { b1000: 26.5,  bernas: 0.80 },  // M70D, Cakrabuana, Conde
+        sedang: { b1000: 28.5,  bernas: 0.75 },  // Ciherang, Mekongga, Inpari 32, Inpari 42
+        dalam:  { b1000: 30.0,  bernas: 0.71 },  // Padi lokal, varietas panjang umur
     };
 
     // ─── OVERRIDE FUNGSI tampilkanHasil untuk mode malai ───────────────────────
@@ -143,8 +179,12 @@
             //  • Tidak ada potongan lagi untuk pematang karena rumpun/m²
             //    sudah netto area tanam (pematang ±10-15% luas sudah diketahui
             //    petani saat mengisi kepadatan; angka yang diisi = area tanam saja)
-            //  • Faktor susut 8% mencakup: tercecer mesin, butir pecah, kadar air
-            //    dari 20% KA (segar) ke ~14% KA (gabah kering giling)
+            //  • Bobot 1000 butir BB Padi diukur pada KA 14% (GKG), sehingga
+            //    hasil kalkulasi sudah merupakan GKG langsung.
+            //  • Faktor susut 3% (FAKTOR_SUSUT_COMBINE) hanya mencakup susut
+            //    mekanis combine: butir tercecer, butir pecah, dan tumpahan mesin.
+            //    TIDAK mencakup konversi kadar air karena b1000 sudah GKG.
+            //    Referensi: BB Padi (2015), Ditjen Tanaman Pangan Kementan.
             // ────────────────────────────────────────────────────────────────
 
             const bulirBernas     = rataBulir * param.bernas;
@@ -166,7 +206,7 @@
                     🌱 <b>Jumlah Bernas:</b> ${bulirBernas.toFixed(1)} butir / malai (bernas ${(param.bernas * 100).toFixed(0)}%)<br>
                     ⚙️ <b>Sistem Lahan:</b> ${namaMetode} — ${rumpunPerMeter} rumpun/m² × ${malaiPerRumpun} malai/rumpun<br>
                     🌾 <b>Parameter Varietas:</b> ${namaVarietas} — Bobot 1000 butir: <b>${param.b1000}g</b><br>
-                    📉 <b>Koreksi Susut Panen:</b> ${((1 - FAKTOR_SUSUT_COMBINE) * 100).toFixed(0)}% (mekanis + kadar air 14% GKG)<br>
+                    📉 <b>Koreksi Susut Panen:</b> ${((1 - FAKTOR_SUSUT_COMBINE) * 100).toFixed(0)}% (susut mekanis combine — GKG langsung)<br>
                     <div style="margin-top:4px; padding-top:4px; border-top: 1px dashed rgba(255,255,255,0.1); font-size:0.72rem; opacity:0.65; font-style:italic;">
                         ✅ Tidak ada potongan pematang — rumpun/m² sudah merupakan populasi netto area tanam.
                     </div>
@@ -218,7 +258,7 @@
         document.getElementById('resConf').innerText = `Tingkat Keyakinan: 100.0%`;
     };
 
-    console.log("✅ [Modul 1] Patch Kalkulasi Hasil Panen v3.0 aktif.");
+    console.log("✅ [Modul 1] Patch Kalkulasi Hasil Panen v3.1 aktif. Bernas & susut dikoreksi ke nilai lapangan.");
 
 })();
 
