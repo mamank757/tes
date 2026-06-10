@@ -23,6 +23,122 @@ const NOAA_ONI_URL  = 'https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt'
 const NOAA_DMI_URL  = 'https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/dmi.had.long.data';
 const PROXY_BASE    = 'https://api.allorigins.win/get?url=';
 
+// ── KONFIGURASI BADGE SUMBER DATA ──────────────────────────
+// Setiap sumber punya warna, ikon, dan label berbeda
+// agar Anda bisa langsung tahu layer mana yang aktif
+const BADGE_CONFIG = {
+    'NOAA CPC (resmi)': {
+        warna: '#10b981',       // Hijau  = data terbaik
+        bg:    'rgba(16,185,129,0.12)',
+        ikon:  '🛰️',
+        label: 'NOAA CPC',
+        keterangan: 'Data resmi NOAA CPC via AllOrigins Proxy'
+    },
+    'NOAA PSL (resmi)': {
+        warna: '#10b981',
+        bg:    'rgba(16,185,129,0.12)',
+        ikon:  '🛰️',
+        label: 'NOAA PSL',
+        keterangan: 'Data resmi NOAA PSL via AllOrigins Proxy'
+    },
+    'Open-Meteo (fallback)': {
+        warna: '#f59e0b',       // Kuning = fallback, masih ok
+        bg:    'rgba(245,158,11,0.12)',
+        ikon:  '⚡',
+        label: 'Open-Meteo',
+        keterangan: 'AllOrigins gagal — menggunakan Open-Meteo sebagai cadangan'
+    },
+    'Statis (semua sumber gagal)': {
+        warna: '#ef4444',       // Merah  = semua gagal, data estimasi
+        bg:    'rgba(239,68,68,0.12)',
+        ikon:  '⚠️',
+        label: 'Estimasi',
+        keterangan: 'Semua sumber gagal — nilai statis digunakan'
+    }
+};
+
+// ── LOG CONSOLE BERWARNA ─────────────────────────────────
+// Dipanggil setiap kali sumber data ditentukan
+// Hasilnya langsung terlihat di DevTools → Console
+function logSumber(tipe, sumber, nilai) {
+    const cfg = BADGE_CONFIG[sumber] || BADGE_CONFIG['Statis (semua sumber gagal)'];
+    const styleJudul  = `color:${cfg.warna}; font-weight:bold; font-size:13px;`;
+    const styleDetail = `color:#94a3b8; font-size:11px;`;
+    const styleNilai  = `color:#ffffff; background:${cfg.bg}; padding:2px 6px; border-radius:4px;`;
+
+    console.groupCollapsed(
+        `%c${cfg.ikon} [IKLIM] ${tipe} aktif: ${cfg.label}`,
+        styleJudul
+    );
+    console.log(`%cSumber  : ${sumber}`, styleDetail);
+    console.log(`%cNilai   : ${nilai}°C`, styleDetail);
+    console.log(`%cStatus  : ${cfg.keterangan}`, styleDetail);
+    console.log(
+        `%cTips    : %cBuka tab Network → Filter "allorigins" untuk konfirmasi`,
+        styleDetail, `color:#64748b; font-size:10px;`
+    );
+    console.groupEnd();
+}
+
+// ── TAMPILKAN BADGE SUMBER DI UI ─────────────────────────
+// Badge kecil muncul tepat di bawah tulisan status ENSO/IOD
+// ID elemen: "badgeSumberIklim" (dibuat otomatis jika belum ada)
+function tampilkanBadgeSumber(ensoSumber, iodSumber) {
+    // Cari atau buat elemen badge
+    let badge = document.getElementById('badgeSumberIklim');
+    if (!badge) {
+        const parent = document.getElementById('ensoIodBox');
+        if (!parent) return;
+        badge = document.createElement('div');
+        badge.id = 'badgeSumberIklim';
+        badge.style.cssText = [
+            'display:flex',
+            'gap:8px',
+            'flex-wrap:wrap',
+            'justify-content:center',
+            'margin-top:10px',
+            'padding:8px',
+            'border-radius:10px',
+            'background:rgba(0,0,0,0.2)',
+            'border:1px solid rgba(255,255,255,0.04)'
+        ].join(';');
+        parent.appendChild(badge);
+    }
+
+    const buatPill = (sumber, label) => {
+        const cfg = BADGE_CONFIG[sumber] || BADGE_CONFIG['Statis (semua sumber gagal)'];
+        return `
+            <span title="${cfg.keterangan}" style="
+                display:inline-flex;
+                align-items:center;
+                gap:4px;
+                padding:4px 10px;
+                border-radius:20px;
+                font-size:0.65rem;
+                font-weight:700;
+                letter-spacing:0.5px;
+                color:${cfg.warna};
+                background:${cfg.bg};
+                border:1px solid ${cfg.warna}40;
+                cursor:default;
+            ">
+                ${cfg.ikon} ${label}: ${cfg.label}
+            </span>`;
+    };
+
+    badge.innerHTML =
+        buatPill(ensoSumber, 'ENSO') +
+        buatPill(iodSumber,  'IOD') +
+        `<span style="
+            display:flex;
+            align-items:center;
+            gap:4px;
+            font-size:0.6rem;
+            color:#475569;
+            margin-left:2px;
+        ">ℹ️ hover untuk detail</span>`;
+}
+
 // ── NAMA BULAN (DIPAKAI DI SEMUA FUNGSI) ──────────────────
 const NAMA_BULAN = [
     'Jan','Feb','Mar','Apr','Mei','Jun',
@@ -302,7 +418,8 @@ async function getENSOAnomaly() {
         const klasif   = klasifikasiENSO(proyeksi[0]);
         const labels   = buatLabelBulan(4);
 
-        console.log('✅ ENSO dari NOAA CPC — ONI terkini:', proyeksi[0]);
+        const sumber = 'NOAA CPC (resmi)';
+        logSumber('ENSO', sumber, proyeksi[0]);
         return {
             labels,
             anomalies: proyeksi,
@@ -311,22 +428,32 @@ async function getENSOAnomaly() {
             intensitas: klasif.intensitas,
             latestAnomaly: proyeksi[0],
             oni3Bulan: parseFloat(oni3.toFixed(2)),
-            sumber: 'NOAA CPC (resmi)'
+            sumber
         };
     } catch (err1) {
-        console.warn('⚠️ NOAA CPC gagal:', err1.message, '— beralih ke Open-Meteo...');
+        console.warn(
+            '%c⚠️ [ENSO] NOAA CPC via AllOrigins GAGAL — beralih ke Open-Meteo',
+            'color:#f59e0b; font-weight:bold;',
+            '\nPenyebab:', err1.message
+        );
     }
 
     // ── LAYER 2: Open-Meteo ────────────────────────────────
     try {
         const hasil = await getENSOViaOpenMeteo();
-        console.log('✅ ENSO dari Open-Meteo (fallback)');
+        logSumber('ENSO', hasil.sumber, hasil.latestAnomaly);
         return hasil;
     } catch (err2) {
-        console.warn('⚠️ Open-Meteo ENSO gagal:', err2.message, '— gunakan nilai statis.');
+        console.warn(
+            '%c❌ [ENSO] Open-Meteo juga GAGAL — menggunakan nilai statis',
+            'color:#ef4444; font-weight:bold;',
+            '\nPenyebab:', err2.message
+        );
     }
 
     // ── LAYER 3: Statis netral ─────────────────────────────
+    const sumberStatis = 'Statis (semua sumber gagal)';
+    logSumber('ENSO', sumberStatis, 0);
     const labels = buatLabelBulan(4);
     return {
         labels,
@@ -336,7 +463,7 @@ async function getENSOAnomaly() {
         intensitas: '',
         latestAnomaly: 0,
         oni3Bulan: 0,
-        sumber: 'Statis (semua sumber gagal)'
+        sumber: sumberStatis
     };
 }
 
@@ -371,7 +498,8 @@ async function getIODAnomaly() {
         const klasif   = klasifikasiIOD(proyeksi[0]);
         const labels   = buatLabelBulan(4);
 
-        console.log('✅ IOD dari NOAA PSL — DMI terkini:', proyeksi[0]);
+        const sumber = 'NOAA PSL (resmi)';
+        logSumber('IOD', sumber, proyeksi[0]);
         return {
             labels,
             anomalies: proyeksi,
@@ -380,22 +508,32 @@ async function getIODAnomaly() {
             intensitas: klasif.intensitas,
             latestAnomaly: proyeksi[0],
             dmi3Bulan: parseFloat(dmi3.toFixed(2)),
-            sumber: 'NOAA PSL (resmi)'
+            sumber
         };
     } catch (err1) {
-        console.warn('⚠️ NOAA PSL DMI gagal:', err1.message, '— beralih ke Open-Meteo...');
+        console.warn(
+            '%c⚠️ [IOD] NOAA PSL via AllOrigins GAGAL — beralih ke Open-Meteo',
+            'color:#f59e0b; font-weight:bold;',
+            '\nPenyebab:', err1.message
+        );
     }
 
     // ── LAYER 2: Open-Meteo ────────────────────────────────
     try {
         const hasil = await getIODViaOpenMeteo();
-        console.log('✅ IOD dari Open-Meteo (fallback)');
+        logSumber('IOD', hasil.sumber, hasil.latestAnomaly);
         return hasil;
     } catch (err2) {
-        console.warn('⚠️ Open-Meteo IOD gagal:', err2.message, '— gunakan nilai statis.');
+        console.warn(
+            '%c❌ [IOD] Open-Meteo juga GAGAL — menggunakan nilai statis',
+            'color:#ef4444; font-weight:bold;',
+            '\nPenyebab:', err2.message
+        );
     }
 
     // ── LAYER 3: Statis netral ─────────────────────────────
+    const sumberStatis = 'Statis (semua sumber gagal)';
+    logSumber('IOD', sumberStatis, 0);
     const labels = buatLabelBulan(4);
     return {
         labels,
@@ -405,13 +543,15 @@ async function getIODAnomaly() {
         intensitas: '',
         latestAnomaly: 0,
         dmi3Bulan: 0,
-        sumber: 'Statis (semua sumber gagal)'
+        sumber: sumberStatis
     };
 }
 
 // ============================================================
-//  OVERRIDE: Perbarui updateENSOIODStatus() agar tampilkan
-//  sumber data (NOAA CPC / Open-Meteo / Statis)
+//  OVERRIDE: updateENSOIODStatus()
+//  — Tampilkan status ENSO/IOD di #ensoStatus
+//  — Panggil tampilkanBadgeSumber() untuk badge visual
+//  — Badge hover menampilkan keterangan sumber lengkap
 // ============================================================
 function updateENSOIODStatus(enso, iod) {
     const div = document.getElementById('ensoStatus');
@@ -430,8 +570,18 @@ function updateENSOIODStatus(enso, iod) {
         `<span style="font-size:0.75rem; opacity:0.6;">(ONI: ${enso.oni3Bulan > 0 ? '+' : ''}${enso.oni3Bulan}°C)</span>` +
         ` &nbsp;|&nbsp; ` +
         `Hindia: <span style="color:${warnaIod}; font-weight:700;">${iod.status}</span> ` +
-        `<span style="font-size:0.75rem; opacity:0.6;">(DMI: ${iod.dmi3Bulan > 0 ? '+' : ''}${iod.dmi3Bulan}°C)</span>` +
-        `<br><span style="font-size:0.65rem; opacity:0.4; margin-top:4px; display:block;">` +
-        `Sumber ENSO: ${enso.sumber || '-'} &nbsp;|&nbsp; Sumber IOD: ${iod.sumber || '-'}` +
-        `</span>`;
+        `<span style="font-size:0.75rem; opacity:0.6;">(DMI: ${iod.dmi3Bulan > 0 ? '+' : ''}${iod.dmi3Bulan}°C)</span>`;
+
+    // Tampilkan badge sumber data di bawah status
+    tampilkanBadgeSumber(enso.sumber, iod.sumber);
+
+    // Log ringkasan ke console untuk debugging cepat
+    console.log(
+        '%c📊 [IKLIM] Ringkasan Sumber Data Aktif',
+        'color:#3b82f6; font-weight:bold; font-size:12px;'
+    );
+    console.table({
+        'ENSO': { sumber: enso.sumber, 'ONI (°C)': enso.oni3Bulan, status: enso.status },
+        'IOD':  { sumber: iod.sumber,  'DMI (°C)': iod.dmi3Bulan,  status: iod.status  }
+    });
 }
