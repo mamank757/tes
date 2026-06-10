@@ -6068,7 +6068,6 @@ async function cariHargaPestisida() {
     <script src="patch_perbaikan_ilmiah.js"></script>
     <script src="patch_kuota_harian.js"></script>
     <script src="patch_curah_hujan_era5.js"></script>
-    <script src="patch_peta.js"></script>
     <style>
     #wrapperRadarMap {
         position: relative;
@@ -6146,5 +6145,118 @@ async function cariHargaPestisida() {
 
 <!-- Tombol tutup — langsung di body, bukan di dalam card -->
 <button id="btnTutupFullscreenPeta" onclick="keluarFullscreenPeta()">✕ TUTUP PETA</button>
+    <script>
+(function() {
+    'use strict';
+
+    var _isFS = false;
+    var _parentAsli = null;
+    var _nextSiblingAsli = null;
+
+    function masukFullscreenPeta() {
+        if (_isFS) return;
+
+        var wrapper = document.getElementById('wrapperRadarMap');
+        var btnFS   = document.getElementById('btnFullscreenPeta');
+        var btnTutup = document.getElementById('btnTutupFullscreenPeta');
+
+        if (!wrapper) return;
+
+        // Simpan posisi asli di DOM
+        _parentAsli       = wrapper.parentNode;
+        _nextSiblingAsli  = wrapper.nextSibling;
+
+        // Pindahkan langsung ke body — ini kunci agar fixed bekerja di mobile
+        document.body.appendChild(wrapper);
+
+        // Terapkan fullscreen
+        wrapper.classList.add('is-fullscreen');
+        _isFS = true;
+
+        // Reload iframe agar render ulang di ukuran baru
+        var iframe = document.getElementById('radarMap');
+        if (iframe && iframe.src) {
+            var src = iframe.src;
+            iframe.src = 'about:blank';
+            setTimeout(function() { iframe.src = src; }, 80);
+        }
+
+        // Tampilkan tombol tutup
+        if (btnTutup) btnTutup.classList.add('visible');
+
+        // Ubah tombol header
+        if (btnFS) {
+            btnFS.textContent = '✕ KELUAR';
+            btnFS.style.background  = 'rgba(239,68,68,0.15)';
+            btnFS.style.borderColor = 'rgba(239,68,68,0.5)';
+            btnFS.style.color       = '#ef4444';
+        }
+
+        // Blokir scroll body
+        document.body.style.overflow = 'hidden';
+    }
+
+    function keluarFullscreenPeta() {
+        if (!_isFS) return;
+
+        var wrapper  = document.getElementById('wrapperRadarMap');
+        var btnFS    = document.getElementById('btnFullscreenPeta');
+        var btnTutup = document.getElementById('btnTutupFullscreenPeta');
+
+        if (!wrapper) return;
+
+        // Cabut kelas fullscreen
+        wrapper.classList.remove('is-fullscreen');
+        _isFS = false;
+
+        // Kembalikan ke posisi asli
+        if (_parentAsli) {
+            if (_nextSiblingAsli) {
+                _parentAsli.insertBefore(wrapper, _nextSiblingAsli);
+            } else {
+                _parentAsli.appendChild(wrapper);
+            }
+        }
+
+        _parentAsli      = null;
+        _nextSiblingAsli = null;
+
+        // Sembunyikan tombol tutup
+        if (btnTutup) btnTutup.classList.remove('visible');
+
+        // Kembalikan tombol header
+        if (btnFS) {
+            btnFS.textContent = '⛶ FULLSCREEN';
+            btnFS.style.background  = 'rgba(0,255,136,0.12)';
+            btnFS.style.borderColor = 'rgba(0,255,136,0.4)';
+            btnFS.style.color       = '#00ff88';
+        }
+
+        // Kembalikan scroll
+        document.body.style.overflow = '';
+    }
+
+    // Expose ke global
+    window.masukFullscreenPeta  = masukFullscreenPeta;
+    window.keluarFullscreenPeta = keluarFullscreenPeta;
+
+    // ESC untuk keluar (desktop)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && _isFS) keluarFullscreenPeta();
+    });
+
+    // Swipe ke bawah > 80px untuk keluar (mobile)
+    var _startY = 0;
+    document.addEventListener('touchstart', function(e) {
+        _startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        if (!_isFS) return;
+        if (e.changedTouches[0].clientY - _startY > 80) keluarFullscreenPeta();
+    }, { passive: true });
+
+    console.log('✅ fullscreen peta siap');
+})();
+</script>
 </body>
 </html>
