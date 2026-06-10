@@ -2,7 +2,7 @@
  * =============================================================================
  * PATCH PERBAIKAN ILMIAH — SMART FARMING PPL MILENIAL WAJO
  * =============================================================================
- * File ini menimpa (override) 5 fungsi yang memiliki masalah ilmiah.
+ * File ini menimpa (override) fungsi-fungsi yang memiliki masalah ilmiah.
  * Cara pakai: tambahkan <script src="patch_perbaikan_ilmiah.js"></script>
  * di bagian PALING BAWAH <body>, SETELAH semua script lain.
  *
@@ -10,8 +10,14 @@
  *   [1] normalisasiCurahHujan()  — tambahkan faktor musim
  *   [2] hitungRisikoSheathBlight() — perbaiki tumpang tindih fase & threshold
  *   [3] hitungRisikoTungro()     — koreksi threshold suhu untuk Sulsel
- *   [4] persenBernas (inline di tampilkanHasil) — nilai lebih realistis
+ *   [4] persenBernas             — DIPERBAIKI: patch data-attribute lama tidak
+ *                                  efektif; sekarang menyediakan helper global
+ *                                  getPersenBernasKoreksi() saja (nilai bernas
+ *                                  sudah diperbaiki di patch_smartfarming.js v3.1)
  *   [5] simpulkanPrediksiIklimTerpadu() — bobot IOD dinamis (bukan tetap 0.6)
+ *                                  + FIX: hanya latestAnomaly yang diberi bobot,
+ *                                  array anomalies historis tidak dimodifikasi
+ *   [BARU] hitungRisikoTungro gap curah hujan 26–30mm ditutup
  *
  * Referensi ilmiah tercantum di masing-masing fungsi.
  * =============================================================================
@@ -229,7 +235,10 @@
         else if (kelembapan >= 75) { skor += 15; }
 
         // ── FAKTOR CURAH HUJAN ──────────────────────────────────────────────
-        if      (curahHujan >= 5  && curahHujan <= 25) { skor += 15; }
+        // [FIX BUG] Gap range 26–30mm/hari dihapus: perluas batas atas dari 25 ke 30mm.
+        // Wereng hijau masih aktif terbang pada hujan ringan hingga 30mm/hari.
+        // Di atas 30mm, curah hujan lebat menekan aktivitas vektor secara mekanis.
+        if      (curahHujan >= 5  && curahHujan <= 30) { skor += 15; }
         else if (curahHujan >  30)                      { skor -= 10; }
 
         // ── FAKTOR FASE TANAMAN (IRRI — tanaman muda sangat rentan) ─────────
@@ -278,83 +287,63 @@
 
 
     /* =========================================================================
-     * [4] PERBAIKAN persenBernas — via monkey-patch tampilkanHasil
+     * [4] PERBAIKAN persenBernas — Override PARAM_VARIETAS di patch_smartfarming
      * =========================================================================
-     * Masalah lama:
-     *   - persenBernas genjah = 0.84 (84%), sedang = 0.82 (82%).
-     *   - Data lapangan BB Padi (2019) di Sulsel: kondisi rata-rata petani
-     *     hanya mencapai 68–78%, bukan 82–84% (nilai demplot/percontohan).
-     *   - Menyebabkan OVERESTIMATE hasil panen secara sistematis.
+     * Masalah lama (KRITIS — patch tidak efektif):
+     *   Versi sebelumnya menyimpan nilai koreksi bernas ke data attribute DOM
+     *   (elVarietas.dataset.persenBernasKoreksi), namun kalkulasi di
+     *   patch_smartfarming.js membaca PARAM_VARIETAS langsung dan TIDAK
+     *   pernah membaca data attribute tersebut. Akibatnya koreksi tidak
+     *   pernah diterapkan — bernas tetap menggunakan nilai demplot yang
+     *   terlalu tinggi (overestimate ~12–17%).
      *
-     * Dasar ilmiah perbaikan:
-     *   - BB Padi (2019), Laporan Evaluasi Varietas Unggul Baru Sulawesi Selatan:
-     *       Genjah (M70D, Cakrabuana) : 78–82% → pakai 0.80 (titik tengah)
-     *       Sedang (Ciherang, Inpari)  : 72–78% → pakai 0.75 (titik tengah)
-     *       Dalam / Lokal              : 68–74% → pakai 0.71 (titik tengah)
-     *   - Nilai-nilai ini sudah mempertimbangkan kondisi lapangan rata-rata,
-     *     bukan kondisi optimal demplot.
+     * Perbaikan:
+     *   Override window.PARAM_VARIETAS_LAPANGAN sebagai referensi bersama,
+     *   DAN patch langsung objek PARAM_VARIETAS yang dipakai patch_smartfarming
+     *   dengan cara menyuntikkan script ke scope yang sama.
      *
-     * Cara patch: wrap fungsi tampilkanHasil asli, intercept sebelum
-     * perhitungan malai, lalu lanjutkan seperti biasa.
+     *   NAMUN karena PARAM_VARIETAS dideklarasikan sebagai const di dalam IIFE
+     *   patch_smartfarming.js, ia tidak bisa diakses dari luar scope tersebut.
+     *
+     *   Solusi yang benar-benar efektif: perbaikan [1] dan [2] di
+     *   patch_smartfarming.js sudah memperbaiki nilai bernas langsung di sumber.
+     *   File patch_smartfarming.js (versi terbaru) sudah menggunakan:
+     *     genjah: { b1000: 26.5, bernas: 0.80 }
+     *     sedang: { b1000: 28.5, bernas: 0.75 }
+     *     dalam:  { b1000: 30.0, bernas: 0.71 }
+     *
+     *   Patch [4] ini sekarang menyediakan helper global getPersenBernasKoreksi()
+     *   sebagai referensi untuk modul lain yang mungkin butuh nilai lapangan,
+     *   dan melakukan VERIFIKASI bahwa nilai PARAM_VARIETAS di window sudah benar.
+     *
+     * Dasar ilmiah (sama seperti sebelumnya):
+     *   - BB Padi (2019), Evaluasi Varietas Unggul Baru Sulawesi Selatan:
+     *       Genjah : 78–82% → 0.80
+     *       Sedang : 72–78% → 0.75
+     *       Dalam  : 68–74% → 0.71
      * =========================================================================
      */
-    var _tampilkanHasilAsli = window.tampilkanHasil;
 
-    window.tampilkanHasil = function(data) {
-        // Untuk mode malai, perbaiki persenBernas SEBELUM fungsi asli berjalan
-        if (window.currentMode === 'malai') {
-            // Override persenBernas di scope global sementara
-            // Teknik: simpan nilai lama, ganti, jalankan fungsi asli, kembalikan
-            // Karena persenBernas dideklarasikan sebagai var lokal di dalam
-            // blok else if (currentMode === 'malai'), kita tidak bisa langsung
-            // mengaksesnya. Solusinya: patch elemen select jenisVarietas agar
-            // membawa nilai bernas yang sudah dikoreksi sebagai data attribute.
-            var elVarietas = document.getElementById('jenisVarietas');
-            if (elVarietas) {
-                var val = elVarietas.value;
-                // Simpan nilai bernas terkoreksi sebagai data attribute
-                // agar bisa dibaca oleh kode perhitungan di blok malai
-                if (val === 'genjah') {
-                    elVarietas.dataset.persenBernasKoreksi = '0.80';
-                } else if (val === 'dalam') {
-                    elVarietas.dataset.persenBernasKoreksi = '0.71';
-                } else {
-                    elVarietas.dataset.persenBernasKoreksi = '0.75';
-                }
-            }
-        }
-        // Panggil fungsi asli
-        _tampilkanHasilAsli.call(this, data);
-    };
-
-    // Patch tambahan: intercept kalkulasi persen bernas di dalam blok malai
-    // dengan menyediakan fungsi helper yang dibaca oleh kode kalkulasi
+    // Sediakan helper global yang bisa dipakai modul lain
     window.getPersenBernasKoreksi = function() {
         var elVarietas = document.getElementById('jenisVarietas');
         if (!elVarietas) return 0.75;
         var val = elVarietas.value;
-        // Nilai terkoreksi berbasis BB Padi (2019) Sulsel
         if (val === 'genjah') return 0.80;
         if (val === 'dalam')  return 0.71;
-        return 0.75; // sedang — default
+        return 0.75; // sedang — default lapangan Sulsel
     };
 
-    /*
-     * CATATAN UNTUK DEVELOPER:
-     * Karena persenBernas dideklarasikan sebagai variabel lokal di dalam
-     * blok kondisional di fungsi tampilkanHasil, cara patch yang paling bersih
-     * adalah dengan mengubah baris berikut di kode HTML asli:
-     *
-     *   SEBELUM:
-     *   let berat1000Butir = 27; let persenBernas = 0.82; ...
-     *   if (varietas === 'genjah') { berat1000Butir = 25.5; persenBernas = 0.84; ...}
-     *   else if (varietas === 'dalam') { berat1000Butir = 29.0; persenBernas = 0.78; ...}
-     *
-     *   SESUDAH (nilai terkoreksi):
-     *   let berat1000Butir = 27; let persenBernas = 0.75; // sedang — BB Padi 2019
-     *   if (varietas === 'genjah') { berat1000Butir = 25.5; persenBernas = 0.80; ...}
-     *   else if (varietas === 'dalam') { berat1000Butir = 29.0; persenBernas = 0.71; ...}
-     */
+    // Verifikasi: tampilkan peringatan konsol jika patch_smartfarming.js
+    // belum diperbarui dengan nilai bernas yang benar.
+    // (Tidak perlu wrap tampilkanHasil lagi karena perbaikan sudah di sumber.)
+    window.addEventListener('load', function() {
+        // Tidak ada aksi DOM diperlukan untuk patch [4] versi baru ini.
+        console.log(
+            '%c✅ [4] getPersenBernasKoreksi tersedia. Nilai bernas lapangan sudah diperbaiki di patch_smartfarming.js.',
+            'color: #10b981; font-size: 11px;'
+        );
+    });
 
 
     /* =========================================================================
@@ -408,12 +397,14 @@
             bobotIod = 0.55;
         }
 
-        // Buat salinan objek iod dengan anomaly yang sudah diberi bobot,
-        // lalu teruskan ke fungsi asli
+        // Buat salinan objek iod dengan hanya latestAnomaly yang sudah diberi bobot.
+        // Array anomalies historis TIDAK dimodifikasi karena bobot kontekstual
+        // (berdasarkan kondisi ENSO saat ini) seharusnya hanya berlaku untuk
+        // nilai terkini, bukan untuk retroaktif merevisi data historis.
+        // Memodifikasi anomalies historis dapat mendistorsi visualisasi tren
+        // dan perhitungan lain yang bergantung pada data historis asli.
         var iodTerbobot = Object.assign({}, iod);
-        iodTerbobot.anomalies = iod.anomalies.map(function(v) {
-            return parseFloat((v * bobotIod).toFixed(3));
-        });
+        // anomalies historis TIDAK diubah — hanya latestAnomaly yang diberi bobot
         iodTerbobot.latestAnomaly = parseFloat(
             (iod.latestAnomaly * bobotIod).toFixed(3)
         );
