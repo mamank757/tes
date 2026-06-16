@@ -145,7 +145,7 @@ body {
             font-weight: 700;
             border-radius: 8px; 
             transition: all 0.2s ease; 
-            font-size: 10px;
+            font-size: 8.5px;
             text-align: center;
             display: flex;
             justify-content: center;
@@ -855,8 +855,8 @@ body.light-mode .harga-table td { color: #334155 !important; border-bottom: 1px 
     <button class="tab-btn" id="tabGulma" onclick="switchMode('gulma')">JENIS GULMA</button>
     <button class="tab-btn" id="tabPestisida" onclick="switchMode('pestisida')">CEK PESTISIDA</button>
     <button class="tab-btn" id="tabGabah" onclick="switchMode('gabah')">HARGA GABAH</button>
-    <button class="tab-btn" id="tabChat2" onclick="toggleChatbox(1)">KONSULTASI 1</button>
-    <button class="tab-btn" id="tabChat3" onclick="toggleChatbox(4)">KONSULTASI 2</button>
+    <button class="tab-btn" id="tabChat2" onclick="toggleChatbox(4)">KONSUL TANI</button>
+    
 </div>
 
     <div class="card">
@@ -1036,7 +1036,7 @@ body.light-mode .harga-table td { color: #334155 !important; border-bottom: 1px 
 <div id="boxPestisida" style="display: none;">
 
     <!-- Header info -->
-    <div class="info-box" style="border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.5); margin-bottom: 20px;">
+    <div class="info-box" style="border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); margin-bottom: 20px;">
         <strong style="color:#f59e0b;">🔍 Cek Harga Pestisida Realtime (AI)</strong><br>
         <span style="font-size: 0.8rem; color: #cbd5e1;">
             Masukkan nama pestisida/herbisida, sistem akan mencari harga terbaru dari internet menggunakan AI.
@@ -3351,94 +3351,148 @@ function isWilayahSulsel(lat, lon) {
             await startBWDCamera();
         }
 
-        document.getElementById('btnCapture').addEventListener('click', async () => {
+        document.getElementById('btnCapture').addEventListener('click', async function() {
     const video = document.getElementById('videoElement');
+    if (!video.srcObject) return;
+
     const canvas = document.getElementById('hiddenCanvas');
     const ctx = canvas.getContext('2d');
-    const btn = document.getElementById('btnCapture');
+    
+    // Sesuaikan resolusi tangkapan
+    const TARGET_BWD = 640; 
+    canvas.width = TARGET_BWD;
+    canvas.height = TARGET_BWD;
+    ctx.drawImage(video, 0, 0, TARGET_BWD, TARGET_BWD);
 
-    // Pastikan video sedang berjalan dan kamera aktif
-    if (!video.videoWidth || !currentStream) {
-        alert("Kamera belum siap, mohon tunggu sebentar.");
-        return;
-    }
+    // Ekstrak base64
+    const base64Img = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-    // Ambil ukuran asli frame video ke canvas sementara
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-
-    // Resize ke 640x640 (center-crop) sebelum dikirim ke AppScript
-    const TARGET_BWD = 640;
-    const exportCanvas = document.createElement('canvas');
-    const exportCtx = exportCanvas.getContext('2d');
-    exportCanvas.width  = TARGET_BWD;
-    exportCanvas.height = TARGET_BWD;
-
-    // Center-crop: ambil area persegi di tengah frame video
-    const srcSizeBWD = Math.min(video.videoWidth, video.videoHeight);
-    const srcXBWD    = (video.videoWidth  - srcSizeBWD) / 2;
-    const srcYBWD    = (video.videoHeight - srcSizeBWD) / 2;
-
-    // Filter brightness & contrast agar AI lebih akurat membaca warna daun
-    exportCtx.filter = 'brightness(1.05) contrast(1.1)';
-    exportCtx.drawImage(canvas, srcXBWD, srcYBWD, srcSizeBWD, srcSizeBWD, 0, 0, TARGET_BWD, TARGET_BWD);
-
-    // Ubah gambar menjadi format base64 640x640
-    const base64Img = exportCanvas.toDataURL('image/jpeg', 0.82).split(',')[1];
-
-    // --- TAMPILKAN PREVIEW FOTO ---
+    // Tampilkan preview
     const previewImg = document.getElementById('bwdPreviewImage');
     if (previewImg) {
-        previewImg.src = canvas.toDataURL('image/jpeg'); 
+        previewImg.src = canvas.toDataURL('image/jpeg');
         previewImg.style.display = 'block';
     }
-    
-    // Sembunyikan kotak fokus hijau agar tidak menimpa hasil jepretan di layar
+
     const focusBox = document.getElementById('focusBox');
     if (focusBox) focusBox.style.display = 'none';
 
-    // Ubah status tombol UI menjadi loading
-    const originalText = btn.innerText;
-    btn.innerHTML = "MENGANALISIS AI..."; 
+    // Ubah status tombol sesuai instruksi (hanya teks)
+    const btn = document.getElementById('btnCapture');
+    btn.innerHTML = "MENGANALISIS AI...";
     btn.disabled = true;
     btn.style.opacity = "0.7";
-    
+
     const outputDiv = document.getElementById('outputBWD');
     outputDiv.innerHTML = `
         <div style="text-align: center; color: var(--accent-bwd); font-size: 0.85rem; margin-top: 15px;">
-            <div class="animasi-loading-kalender" style="color:var(--accent-bwd);">Menganalisis tingkat Nitrogen daun...</div>
+            Memproses deteksi daun...
         </div>`;
 
     try {
-        // Kirim HTTP POST ke Web App Google Apps Script BWD
+        // Gunakan text/plain agar tidak memicu preflight CORS error di App Script
         const res = await fetch(URL_BWD, {
             method: 'POST',
-            body: JSON.stringify({ image: base64Img })
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8' 
+            },
+            body: JSON.stringify({ 
+                image: base64Img 
+            })
         });
+
+        const textRes = await res.text();
+        let data;
+        try {
+            data = JSON.parse(textRes);
+        } catch (parseError) {
+            throw new Error("Format respons server tidak dikenali.");
+        }
+
+        // Cek jika Apps Script mereturn error dari blok catch
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // Jika tidak ada deteksi daun
+        if (!data.detections || data.detections.length === 0) {
+            outputDiv.innerHTML = `
+                <div style="color:#ef4444; text-align:center; padding:15px; border: 1px solid #ef4444; border-radius: 8px; margin-top: 10px;">
+                    Daun tidak terdeteksi dengan jelas atau tingkat keyakinan AI rendah. Coba posisikan daun lebih dekat.
+                </div>
+                <button class="btn-main" onclick="ujiUlangBWD()" style="background: #333; margin-top: 15px;">UJI ULANG</button>
+            `;
+            return;
+        }
+
+        // Ambil hasil terbaik (index 0) sesuai logika Apps Script
+        const bestDetection = data.detections[0];
+        const warnaDaun = data.leafColors[0];
         
-        const data = await res.json();
+        // Translasi hasil ke informasi BWD dan Rekomendasi
+        let skalaInfo = "";
+        let rekomendasi = "";
+        let warnaHex = "#2ecc71"; 
         
-        // Hentikan kamera perangkat untuk menghemat baterai HP
-        stopCamera();
-        
-        // Teruskan data ke fungsi global penampil hasil AI
-        currentMode = 'bwd';
-        tampilkanHasil(data);
+        switch(warnaDaun) {
+            case "yellow":
+                skalaInfo = "Skala BWD < 3 (Kuning)";
+                rekomendasi = "Kekurangan Nitrogen parah. Segera aplikasikan pupuk.";
+                warnaHex = "#f1c40f";
+                break;
+            case "yellowish green":
+                skalaInfo = "Skala BWD 3 (Hijau Kekuningan)";
+                rekomendasi = "Kadar Nitrogen rendah. Waktunya aplikasi pupuk susulan.";
+                warnaHex = "#9acd32";
+                break;
+            case "light green":
+                skalaInfo = "Skala BWD 4 (Hijau Terang)";
+                rekomendasi = "Kadar Nitrogen optimal. Pertahankan kondisi ini.";
+                warnaHex = "#2ecc71";
+                break;
+            case "green":
+                skalaInfo = "Skala BWD 5 (Hijau)";
+                rekomendasi = "Nitrogen tinggi. Tunda pemupukan untuk mencegah rebah.";
+                warnaHex = "#27ae60";
+                break;
+            case "dark green":
+                skalaInfo = "Skala BWD > 5 (Hijau Gelap)";
+                rekomendasi = "Nitrogen sangat tinggi. Hentikan pemupukan N.";
+                warnaHex = "#1e8449";
+                break;
+            default:
+                skalaInfo = "Skala tidak diketahui";
+                rekomendasi = "Lakukan pemindaian ulang.";
+                warnaHex = "#888";
+        }
+
+        outputDiv.innerHTML = `
+            <div class="info-box" style="border-left-color: ${warnaHex}; margin-top: 15px;">
+                <strong>Hasil Deteksi AI:</strong><br>
+                <span style="font-size: 1.1rem; font-weight: bold; color: ${warnaHex};">${skalaInfo}</span><br>
+                <span style="font-size: 0.8rem; color: #aaa;">Keyakinan: ${Math.round(bestDetection.confidence * 100)}% | Kelas: ${bestDetection.class}</span>
+            </div>
+            <div class="info-box" style="border-left-color: var(--accent-soil); margin-top: 10px;">
+                <strong>Rekomendasi:</strong><br>
+                <span>${rekomendasi}</span>
+            </div>
+            ${data.outputImage ? `<img src="data:image/jpeg;base64,${data.outputImage}" style="width:100%; border-radius:8px; margin-top:15px; border:1px solid #333;" alt="Gambar Deteksi AI">` : ''}
+            <button class="btn-main" onclick="ujiUlangBWD()" style="background: var(--accent-bwd); margin-top: 15px;">UJI ULANG</button>
+        `;
 
     } catch (err) {
-        console.error(err);
-        outputDiv.innerHTML = `<div class="error" style="display:block; text-align:center;">Gagal memproses gambar. Periksa koneksi internet atau URL Apps Script.</div>`;
-        
-        // Jika terjadi error (misal sinyal putus), kembalikan UI ke mode kamera live
-        if (previewImg) previewImg.style.display = 'none';
-        if (focusBox) focusBox.style.display = 'block';
-        
+        outputDiv.innerHTML = `
+            <div style="color:#ef4444; text-align:center; padding:15px; border: 1px solid #ef4444; border-radius: 8px; margin-top: 10px;">
+                <strong>Gagal memproses data.</strong><br>
+                <span style="font-size: 0.85rem;">Pesan: ${err.message}</span><br>
+                <button class="btn-main" onclick="ujiUlangBWD()" style="background: #333; margin-top: 10px;">KEMBALI</button>
+            </div>`;
     } finally {
-        // Kembalikan tombol ke kondisi semula
-        btn.innerText = originalText;
+        // Kembalikan tombol menggunakan teks murni
+        btn.innerHTML = "TANGKAP FOTO";
         btn.disabled = false;
         btn.style.opacity = "1";
+        btn.style.display = "none";
     }
 });
         async function mulaiAnalisis() {
@@ -5491,7 +5545,7 @@ const GAS_URL_1 = "https://script.google.com/macros/s/AKfycbzJfQzgWnMJKqiaT8YP-G
 const GAS_URL_2 = "https://script.google.com/macros/s/AKfycbyvSjJziHRXDf_sj0HX1zKOr3P57uzvBBwT1EZzedVhzykUB4JN5H-WCuJNH43dhXcX/exec"; 
 const GAS_URL_3 = "https://script.google.com/macros/s/AKfycbwYXgFAiXbbkjrOlXsrvKu2jTrefxO3NeVxW9gYF3iQbK7mcwGomViuhAOBR4f0c5lI/exec"; 
 const GAS_URL_4 = "https://script.google.com/macros/s/AKfycbyYawG41kIjswwpL0Bv0zDKGfpimOBoLdq7n8jwJQ54WkDEMUASQGCgpvuuBFJrrbOQ/exec";
-const GAS_URL_5 = "https://script.google.com/macros/s/AKfycbwSbAi5ziGYxzE2Zx2n-D5liuXdhJzaujLaq8-p6PaVSd9bb6NkYXGUVAjYQLZNan4V/exec";
+const GAS_URL_5 = "https://script.google.com/macros/s/AKfycbzu63R0FrkwWymEdBDqxTTfzV2tAGIqPmM3N1a-M0ZU4Kb5NaI-0jPErK7mMkyEsSZD/exec";
 
 const chatboxAI = document.getElementById('chatboxAI');
 const btnBukaChat = document.getElementById('btnBukaChat');
@@ -6016,6 +6070,8 @@ async function cariHargaPestisida() {
 <script src="patch_smartfarming.js"></script>
 <script src="patch_riwayat_tambahan.js"></script>
 <script src="patch_cuaca_langsung.js"></script>
+    <script src="patch_peringatan_ekstrem.js"></script>
+<script src="patch_peta_koordinat.js"></script>
 
 <script>
 // ================================================================
@@ -6068,7 +6124,7 @@ async function cariHargaPestisida() {
     <script src="patch_perbaikan_ilmiah.js"></script>
     <script src="patch_kuota_harian.js"></script>
     <script src="patch_curah_hujan_era5.js"></script>
-    <script src="patch_peta_koordinat.js"></script>
+    <script src="patch_risiko_iklim.js"></script>
     <style>
     #wrapperRadarMap {
         position: relative;
@@ -6105,7 +6161,7 @@ async function cariHargaPestisida() {
     #btnTutupFullscreenPeta {
         display: none;
         position: fixed;
-        top: 14px;
+        top: 140px;
         right: 14px;
         z-index: 100000;
         background: rgba(239, 68, 68, 0.92);
@@ -6259,5 +6315,13 @@ async function cariHargaPestisida() {
     console.log('✅ fullscreen peta siap');
 })();
 </script>
+    <script src="patch_deteksi_musim_v1.js"></script>
+    <script src="patch_jadwal_tanam_otomatis.js"></script>
+    
+    <script src="patch_fix_bobot_scoring_v1.js"></script>
+    <script src="patch_jadwal_manual_trigger.js"></script>
+<script src="patch_riwayat_analisis.js"></script>  
+<script src="patch_perbaikan_kontras.js"></script> 
+  
 </body>
 </html>
