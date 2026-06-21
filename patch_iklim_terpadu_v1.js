@@ -30,7 +30,9 @@
  *   [FIX-6] getFallbackSST() → basis data 7 zona nasional.
  *   [FIX-7] getLocalSSTTimeseries() → deteksi perairan
  *           otomatis berdasarkan GPS.
- *   [FIX-8] Guard IIFE — fungsi hanya didefinisikan sekali,
+ *   [FIX-8] showSSTRekomendasi() → nama perairan dinamis,
+ *           threshold per zona, tidak hardcode Selat Makassar.
+ *   [FIX-9] Guard IIFE — fungsi hanya didefinisikan sekali,
  *           tidak bisa ditimpa oleh patch berikutnya.
  *
  * ============================================================
@@ -409,6 +411,227 @@
     }
 
     // ========================================================
+    //  BAGIAN 5b — showSSTRekomendasi NASIONAL
+    //
+    //  Fungsi asli di HTML hardcode "Selat Makassar" dan
+    //  "Teluk Bone" di setiap kondisi — tidak peduli GPS
+    //  pengguna ada di Malang, Sumatera, atau Papua.
+    //
+    //  Versi ini:
+    //   a. Deteksi perairan terdekat dari GPS → nama dinamis
+    //   b. Threshold disesuaikan per zona (bukan hanya Sulsel)
+    //   c. Teks deskripsi menyebutkan nama laut yang benar
+    // ========================================================
+
+    /**
+     * Threshold SST per zona untuk menentukan status anomali.
+     * Nilai "normal musim timur" berbeda tiap perairan:
+     *   Selat Makassar: upwelling kuat → normal 26–27°C (Jun–Okt)
+     *   Laut Jawa: tidak ada upwelling kuat → normal 28–29°C
+     *   dst.
+     */
+    var THRESHOLD_SST_ZONA = {
+        'Sulawesi Selatan': {
+            upwellingMaks: 27.5,   // sst2 (Selat Makassar) di bawah ini = upwelling
+            anomaliHangatMin1: 29.5, anomaliHangatMin2: 29.0,  // kuat
+            sedangMin2: 28.5,      // sedang
+            hangatMusimBasahMin1: 29.3,  // Bone hangat di musim barat
+            dinginDiLuarMusimMaks2: 27.0
+        },
+        'Jawa': {
+            upwellingMaks: 26.5,   // Samudra Hindia selatan Jawa saat upwelling
+            anomaliHangatMin1: 30.0, anomaliHangatMin2: 28.5,
+            sedangMin2: 27.5,
+            hangatMusimBasahMin1: 29.8,
+            dinginDiLuarMusimMaks2: 26.0
+        },
+        'Sumatera': {
+            upwellingMaks: 27.5,
+            anomaliHangatMin1: 30.0, anomaliHangatMin2: 29.5,
+            sedangMin2: 29.0,
+            hangatMusimBasahMin1: 29.5,
+            dinginDiLuarMusimMaks2: 27.5
+        },
+        'Kalimantan': {
+            upwellingMaks: 28.5,   // tidak ada upwelling signifikan
+            anomaliHangatMin1: 30.2, anomaliHangatMin2: 30.0,
+            sedangMin2: 29.5,
+            hangatMusimBasahMin1: 30.0,
+            dinginDiLuarMusimMaks2: 28.0
+        },
+        'Sulawesi Utara & Maluku Utara': {
+            upwellingMaks: 28.5,
+            anomaliHangatMin1: 30.0, anomaliHangatMin2: 30.0,
+            sedangMin2: 29.5,
+            hangatMusimBasahMin1: 29.8,
+            dinginDiLuarMusimMaks2: 28.0
+        },
+        'Papua': {
+            upwellingMaks: 28.5,
+            anomaliHangatMin1: 30.0, anomaliHangatMin2: 30.2,
+            sedangMin2: 29.5,
+            hangatMusimBasahMin1: 30.0,
+            dinginDiLuarMusimMaks2: 28.0
+        },
+        'Nusa Tenggara': {
+            upwellingMaks: 27.0,
+            anomaliHangatMin1: 29.5, anomaliHangatMin2: 29.0,
+            sedangMin2: 28.5,
+            hangatMusimBasahMin1: 29.3,
+            dinginDiLuarMusimMaks2: 26.5
+        }
+    };
+
+    function showSSTRekomendasiNasional(sstLokal) {
+        // ── 1. Identifikasi perairan dari GPS ─────────────────
+        var gps      = bacaKoordinatGPS();
+        var perairan = deteksiPerairan(gps.lat, gps.lon);
+        var namaWil  = perairan.namaWilayah;
+        var n1       = (sstLokal && sstLokal.nama1) || perairan.nama1;
+        var n2       = (sstLokal && sstLokal.nama2) || perairan.nama2;
+
+        // ── 2. Ambil nilai SST ────────────────────────────────
+        var sst1 = parseFloat(
+            (sstLokal && (sstLokal.sstBoneTerkini || (sstLokal.boneData && sstLokal.boneData[0])))
+            || getFallbackSSTNasional(perairan.coord1.lat, perairan.coord1.lon, new Date())
+        );
+        var sst2 = parseFloat(
+            (sstLokal && (sstLokal.sstMksTerkini || (sstLokal.makassarData && sstLokal.makassarData[0])))
+            || getFallbackSSTNasional(perairan.coord2.lat, perairan.coord2.lon, new Date())
+        );
+
+        if (!isFinite(sst1) || !isFinite(sst2)) return;
+
+        // ── 3. Ambil threshold untuk wilayah ini ──────────────
+        var th = THRESHOLD_SST_ZONA[namaWil] || THRESHOLD_SST_ZONA['Sulawesi Selatan'];
+
+        // ── 4. Deteksi musim (Jun–Okt = musim timur) ─────────
+        var bulan = new Date().getMonth();
+        var musimTimur = bulan >= 5 && bulan <= 9;
+        var upwellingAktif = (sstLokal && sstLokal.upwellingAktif) ||
+            perairan.upwelling(bulan, sst1, sst2);
+
+        // ── 5. Tentukan kondisi ───────────────────────────────
+        var judul = '';
+        var rekomendasi = '';
+        var warna = 'var(--accent-green)';
+        var tingkatRisiko = 'RENDAH';
+
+        if (musimTimur && upwellingAktif && sst2 <= th.upwellingMaks) {
+            judul = '🌊 UPWELLING AKTIF';
+            warna = 'var(--accent-bwd)';
+            tingkatRisiko = 'RENDAH';
+            rekomendasi =
+                n2 + ' berada pada suhu <b>' + sst2.toFixed(1) + '°C</b>, ' +
+                'menunjukkan indikasi upwelling yang masih aktif selama musim timur.<br><br>' +
+                'Massa air lebih dingin dan kaya nutrisi berpotensi naik ke permukaan — ' +
+                'kondisi laut relatif normal untuk periode ini.<br><br>' +
+                '<b>Implikasi:</b><br>' +
+                '• Curah hujan cenderung normal hingga sedikit di bawah normal<br>' +
+                '• Risiko kekeringan masih rendah<br>' +
+                '• Produktivitas perairan berpotensi meningkat';
+
+        } else if (musimTimur && sst2 >= th.anomaliHangatMin2 && sst1 >= th.anomaliHangatMin1) {
+            judul = '⚠️ ANOMALI SUHU LAUT HANGAT';
+            warna = 'var(--red-alert)';
+            tingkatRisiko = 'TINGGI';
+            rekomendasi =
+                'Suhu ' + n1 + ' mencapai <b>' + sst1.toFixed(1) + '°C</b> dan ' +
+                n2 + ' <b>' + sst2.toFixed(1) + '°C</b>.<br><br>' +
+                'Nilai ini sangat hangat untuk musim timur dan mengindikasikan ' +
+                'pelemahan proses upwelling di perairan ' + namaWil + '.<br><br>' +
+                '<b>Dampak Potensial:</b><br>' +
+                '• Curah hujan berpotensi lebih rendah dari normal<br>' +
+                '• Risiko kekeringan meningkat jika monsun timur tetap dominan<br>' +
+                '• Ketersediaan air irigasi perlu dipantau lebih ketat<br><br>' +
+                '<b>Rekomendasi:</b><br>' +
+                '• Prioritaskan efisiensi penggunaan air<br>' +
+                '• Siapkan cadangan air irigasi bila tersedia';
+
+        } else if (musimTimur && sst2 >= th.sedangMin2) {
+            judul = '⚠️ PERAIRAN LEBIH HANGAT DARI NORMAL';
+            warna = 'var(--accent-soil)';
+            tingkatRisiko = 'SEDANG';
+            rekomendasi =
+                n2 + ' berada pada suhu <b>' + sst2.toFixed(1) + '°C</b>, ' +
+                'lebih hangat dibanding kondisi upwelling yang biasanya terjadi ' +
+                'pada musim timur di perairan ' + namaWil + '.<br><br>' +
+                'Kondisi ini menunjukkan pelemahan upwelling namun belum tergolong ekstrem.<br><br>' +
+                '<b>Implikasi:</b><br>' +
+                '• Curah hujan diperkirakan normal hingga sedikit di bawah normal<br>' +
+                '• Pemantauan kelembapan tanah dan ketersediaan air tetap diperlukan';
+
+        } else if (!musimTimur && sst1 >= th.hangatMusimBasahMin1) {
+            judul = '🌧️ SUHU ' + n1.toUpperCase() + ' HANGAT';
+            warna = 'var(--accent-bwd)';
+            tingkatRisiko = 'SEDANG';
+            rekomendasi =
+                'Suhu ' + n1 + ' mencapai <b>' + sst1.toFixed(1) + '°C</b> ' +
+                'yang cukup hangat untuk mendukung penguapan dan pembentukan awan konvektif ' +
+                'di atas ' + namaWil + '.<br><br>' +
+                '<b>Implikasi:</b><br>' +
+                '• Potensi hujan lokal dapat meningkat<br>' +
+                '• Kelembapan tinggi mendukung penyakit tanaman berbasis jamur<br><br>' +
+                '<b>Rekomendasi:</b><br>' +
+                '• Perhatikan drainase lahan<br>' +
+                '• Tingkatkan pemantauan penyakit daun (Blast, Hawar Pelepah)';
+
+        } else if (!musimTimur && sst2 <= th.dinginDiLuarMusimMaks2) {
+            judul = '🌧️ ANOMALI SUHU LAUT LEBIH DINGIN';
+            warna = 'var(--accent-bwd)';
+            tingkatRisiko = 'SEDANG';
+            rekomendasi =
+                n2 + ' berada pada suhu <b>' + sst2.toFixed(1) + '°C</b>, ' +
+                'lebih rendah dari kondisi umum pada musim hujan di ' + namaWil + '.<br><br>' +
+                'Kondisi ini dapat berkaitan dengan aktivitas atmosfer yang mendukung ' +
+                'curah hujan lebih tinggi dari normal.<br><br>' +
+                '<b>Rekomendasi:</b><br>' +
+                '• Pastikan sistem drainase berfungsi baik<br>' +
+                '• Waspadai genangan pada lahan rendah';
+
+        } else {
+            judul = '✅ KONDISI SST LOKAL NORMAL';
+            warna = 'var(--accent-green)';
+            tingkatRisiko = 'RENDAH';
+            rekomendasi =
+                'Suhu ' + n1 + ' <b>' + sst1.toFixed(1) + '°C</b> dan ' +
+                n2 + ' <b>' + sst2.toFixed(1) + '°C</b> masih berada dalam ' +
+                'kisaran yang wajar untuk periode saat ini di perairan sekitar ' +
+                namaWil + '.<br><br>' +
+                'Tidak terdapat indikasi gangguan oseanografi lokal yang signifikan. ' +
+                'Pola cuaca diperkirakan mengikuti kondisi musiman normal.';
+        }
+
+        // ── 6. Render ke DOM ──────────────────────────────────
+        var rekomBox = document.getElementById('sstRekomendasiBox');
+
+        if (!rekomBox) {
+            var container = document.getElementById('ensoIodBox');
+            if (container) {
+                container.insertAdjacentHTML(
+                    'beforeend',
+                    '<div id="sstRekomendasiBox" class="info-box" style="margin-top:16px;"></div>'
+                );
+                rekomBox = document.getElementById('sstRekomendasiBox');
+            }
+        }
+
+        if (rekomBox) {
+            rekomBox.style.borderLeftColor = warna;
+            rekomBox.innerHTML =
+                '<strong style="font-size:0.95rem;">' + judul + '</strong>' +
+                '<br><br>' +
+                '<span style="font-size:0.82rem;line-height:1.65;">' +
+                rekomendasi + '</span>' +
+                '<div style="margin-top:12px;padding-top:8px;' +
+                'border-top:1px dashed rgba(255,255,255,0.15);' +
+                'font-size:0.73rem;opacity:0.7;">' +
+                '📍 SST Real-time · ' + namaWil + ' · Risiko ' + tingkatRisiko +
+                '</div>';
+        }
+    }
+
+    // ========================================================
     //  BAGIAN 6 — FUNGSI UTAMA: simpulkanPrediksiIklimTerpadu
     //
     //  Parameter:
@@ -685,6 +908,7 @@
 
         // -- Override fungsi-fungsi utama --
         window.simpulkanPrediksiIklimTerpadu = simpulkanPrediksiIklimTerpaduKonsolidasi;
+        window.showSSTRekomendasi            = showSSTRekomendasiNasional;
         window.getLocalSSTTimeseries         = getLocalSSTTimeseriesNasional;
         window.getFallbackSST                = getFallbackSSTNasional;
         window.updateLocalWarning            = updateLocalWarningNasional;
@@ -727,6 +951,8 @@
             '  ║ ✅ [FIX-5] isWilayahSulsel → seluruh Indonesia\n' +
             '  ║ ✅ [FIX-6] getFallbackSST → 7 zona nasional\n' +
             '  ║ ✅ [FIX-7] getLocalSSTTimeseries → nama perairan dinamis\n' +
+            '  ║ ✅ [FIX-8] showSSTRekomendasi → tidak hardcode Selat Makassar\n' +
+            '  ║            threshold & nama perairan per zona GPS\n' +
             '  ╠══ WILAYAH YANG KINI DIDUKUNG ════════════╣\n' +
             '  ║   Sulawesi Selatan · Jawa · Sumatera\n' +
             '  ║   Kalimantan · Sulawesi Utara/Maluku Utara\n' +
