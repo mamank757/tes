@@ -825,6 +825,56 @@ body.light-mode .stat-card { background: #f8fafc; border-color: #cbd5e1; }
 body.light-mode .hpp-card .value, body.light-mode .stat-card .stat-val { color: #0f172a !important; }
 body.light-mode .harga-table td { color: #334155 !important; border-bottom: 1px solid #e2e8f0; }
     </style>
+    <style>
+    /* Standarisasi Latar Belakang Gelap */
+    body {
+        background-color: #0b1528;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Efek Glassmorphism untuk Kartu & Kontainer Grafik */
+    .glass-card {
+        background: rgba(17, 34, 64, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 255, 136, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .glass-card:hover {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 255, 136, 0.2);
+        border-color: rgba(0, 255, 136, 0.6);
+    }
+
+    /* Standarisasi Tombol Berbasis Teks Murni (Paste, Hapus, dll) */
+    .btn-text {
+        background: rgba(0, 255, 136, 0.1);
+        color: #00ff88;
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.2s ease;
+        display: inline-block;
+        text-align: center;
+        text-decoration: none;
+    }
+
+    .btn-text:hover {
+        background: rgba(0, 255, 136, 0.2);
+        box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+        color: #ffffff;
+    }
+</style>
 </head>
 <body>
 
@@ -853,10 +903,10 @@ body.light-mode .harga-table td { color: #334155 !important; border-bottom: 1px 
     <button class="tab-btn" id="tabHama" onclick="switchMode('hama')">HAMA PADI</button>
     <button class="tab-btn" id="tabDaun" onclick="switchMode('daun')">PENYAKIT PADI</button>
     <button class="tab-btn" id="tabGulma" onclick="switchMode('gulma')">JENIS GULMA</button>
-    <button class="tab-btn" id="tabPestisida" onclick="switchMode('pestisida')">CEK PESTISIDA</button>
-    <button class="tab-btn" id="tabGabah" onclick="switchMode('gabah')">HARGA GABAH</button>
-    <button class="tab-btn" id="tabChat2" onclick="toggleChatbox(4)">KONSUL TANI</button>
     
+    
+    <button class="tab-btn" id="tabChat2" onclick="toggleChatbox(4)">KONSUL TANI</button>
+    <button class="tab-btn" id="tabPestisida" onclick="switchMode('pestisida')">CEK PESTISIDA</button>
 </div>
 
     <div class="card">
@@ -1581,8 +1631,8 @@ window.addEventListener('load', function() {
         const URL_MALAI = "https://script.google.com/macros/s/AKfycbzVPK1I_81gFU07Q_tNsWxUK1SZ_1tmwNlASp8P5_IR5hApq3XZb8koYufA46fIOacd/exec";
         const URL_BWD = "https://script.google.com/macros/s/AKfycbwGAPTPnLJyg-OtcbFt1aG_I2uy6FQjd-5eE2p1UuhQTde2lEbokpAquACyutg8kBDi/exec";
         const URL_PUPUK = "https://script.google.com/macros/s/AKfycbyZkyLEeLi7Igk-JXLuYuRsV0ZqTmbevRUQu6rY10rptwNyZ7y3d-YNmJCDn3QgM0Dm/exec";
-        const URL_POLA_HUJAN = "https://script.google.com/macros/s/AKfycbyc3eEBcxqr_YqRKJ6lPnS4nAzz9TVrKQwKcgBJAg3KSulTdrYKeVvQbUjDVSIjYVLI/exec";
-        const URL_ZOM_LOKAL = "https://script.google.com/macros/s/AKfycbw4oqbO59e789P9KU2mucMf2jmoFEiUow_-GDqWw2lp26EwWturqzId4m87PlTHFx292g/exec";
+        const URL_POLA_HUJAN = "https://script.google.com/macros/s/AKfycbzSt9d_oePM5dIvAni8g2_iO67r-CCYTeC4__-D9bJubH_l8p4LSWv9io-_70833VkZ/exec";
+        const URL_ZOM_LOKAL = "https://script.google.com/macros/s/AKfycbwz7hmlvMapsKMrimrywMLeF19frH_AILGLV1Y_4n7uNd6S3wWxAHm5b_G0fH0asE0v/exec";
        
         window.addEventListener('load', async function() {
             const inputKec = document.getElementById('kecInput');
@@ -2982,7 +3032,7 @@ function isWilayahSulsel(lat, lon) {
                 }
 
                 // ─── PROVIDER 1: Open-Meteo (Primary) ──────────────────────
-                const urlArchive = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${getFormatTanggal(30)}&end_date=${getFormatTanggal(1)}&daily=precipitation_sum&timezone=auto`;
+                const urlArchive = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${getFormatTanggal(38)}&end_date=${getFormatTanggal(8)}&daily=precipitation_sum&timezone=auto`;
                 const urlForecast = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=rain,temperature_2m,relative_humidity_2m,dew_point_2m,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code&hourly=precipitation_probability,precipitation,temperature_850hPa,cape,temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
 
                 // ─── PROVIDER 2: wttr.in (Fallback, tanpa API key) ──────────
@@ -3059,6 +3109,7 @@ function isWilayahSulsel(lat, lon) {
 
                 // ─── AMBIL DATA: COBA OPEN-METEO, FALLBACK KE WTTR.IN ──────
                 let dataForecast, dataArchive;
+                let sumberDataCuaca = "openmeteo"; // "openmeteo" = data asli lengkap, "wttr" = fallback (CAPE & 850hPa adalah nilai dummy)
                 document.getElementById('resConf').innerText = "Menghubungi server cuaca...";
 
                 try {
@@ -3069,6 +3120,7 @@ function isWilayahSulsel(lat, lon) {
                     ]);
                     dataForecast = resF;
                     dataArchive = resA;
+                    sumberDataCuaca = "openmeteo";
                     console.log("✅ Data cuaca dari Open-Meteo");
                 } catch (errOpenMeteo) {
                     // Fallback ke wttr.in jika Open-Meteo gagal
@@ -3078,16 +3130,30 @@ function isWilayahSulsel(lat, lon) {
                         const wttrRaw = await fetchDenganRetry(urlWttr, 3, 2000);
                         dataForecast = konversiWttrKeOpenMeteo(wttrRaw);
                         dataArchive = { daily: { precipitation_sum: [] } };
-                        console.log("✅ Data cuaca dari wttr.in (fallback)");
+                        sumberDataCuaca = "wttr";
+                        console.log("✅ Data cuaca dari wttr.in (fallback) — CAPE & 850hPa adalah nilai dummy");
                     } catch (errWttr) {
                         throw new Error("Semua sumber cuaca tidak dapat dijangkau. Periksa koneksi internet Anda.");
                     }
                 }
-                
-                const cur = dataForecast.current; 
+                window._sumberDataCuacaAktif = sumberDataCuaca;
+
+                const labelLokasiEl = document.getElementById('alamatDesa');
+                if (sumberDataCuaca === "wttr" && labelLokasiEl) {
+                    labelLokasiEl.insertAdjacentHTML('afterend',
+                        `<div id="indikatorSumberCadangan" style="margin-top:6px; font-size:0.7rem; color: var(--accent-soil); font-weight:600;">
+                            ⚠️ Memakai server cuaca cadangan — sebagian parameter atmosfer (CAPE, suhu udara atas) menggunakan estimasi, akurasi prediksi hujan jangka pendek sedikit berkurang.
+                        </div>`
+                    );
+                } else {
+                    const existingIndikator = document.getElementById('indikatorSumberCadangan');
+                    if (existingIndikator) existingIndikator.remove();
+                }
+
+                const cur = dataForecast.current;
                 const hourly = dataForecast.hourly;
                 const daily = dataForecast.daily;
-
+               
                 const sekarang = new Date();
                 const tahun = sekarang.getFullYear();
                 const bulan = String(sekarang.getMonth() + 1).padStart(2, '0');
@@ -3103,11 +3169,22 @@ function isWilayahSulsel(lat, lon) {
                 }
 
                 const dapatkanKondisiCuaca = (code) => {
+                    // Kode WMO 0: Cerah total
                     if ([0].includes(code)) return { teks: "Cerah", ikon: "☀️" };
+                    // Kode WMO 1-3: Berawan (tanpa presipitasi)
                     if ([1, 2, 3].includes(code)) return { teks: "Berawan", ikon: "☁️" };
+                    // Kode WMO 45,48: Kabut
                     if ([45, 48].includes(code)) return { teks: "Berkabut", ikon: "🌫️" };
-                    if ([51, 53, 55, 61, 63, 80, 81].includes(code)) return { teks: "Hujan Ringan/Sedang", ikon: "🌧️" };
+                    // Kode WMO 51,53,55: DRIZZLE/GERIMIS — dipisah dari hujan asli.
+                    // Drizzle sering muncul bersamaan kondisi mendung tebal/lembap
+                    // tanpa air jatuh yang terasa signifikan di lapangan.
+                    // Sumber kebingungan utama "katanya hujan padahal cuma mendung".
+                    if ([51, 53, 55].includes(code)) return { teks: "Mendung Lembap / Gerimis Tipis", ikon: "🌥️" };
+                    // Kode WMO 61,63,80,81: Hujan ringan-sedang yang benar (presipitasi nyata)
+                    if ([61, 63, 80, 81].includes(code)) return { teks: "Hujan Ringan/Sedang", ikon: "🌧️" };
+                    // Kode WMO 65,82: Hujan lebat
                     if ([65, 82].includes(code)) return { teks: "Hujan Lebat", ikon: "🌧️" };
+                    // Kode WMO 95,96,99: Badai petir
                     if ([95, 96, 99].includes(code)) return { teks: "Hujan Petir", ikon: "⛈️" };
                     return { teks: "Berawan", ikon: "⛅" };
                 };
@@ -3133,8 +3210,8 @@ function isWilayahSulsel(lat, lon) {
                     dailyContainer.innerHTML = '';
                     const namaHari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
                     for (let j = 0; j < daily.time.length; j++) {
-                        const dObj = new Date(daily.time[j]);
-                        let hariTeks = namaHari[dObj.getDay()];
+                        const d = new Date(daily.time[j] + 'T00:00:00+08:00');
+                        let hariTeks = namaHari[d.getDay()];
                         if (j === 0) hariTeks = "Hari Ini";
                         const cuacaHari = dapatkanKondisiCuaca(daily.weather_code[j]);
                         const tMax = daily.temperature_2m_max[j].toFixed(0);
@@ -3166,23 +3243,41 @@ function isWilayahSulsel(lat, lon) {
 
                 let rainScore = 0;
                 const nextHourProb = hourly.precipitation_probability ? (hourly.precipitation_probability[activeIndex + 1] || 0) : 0;
-                if (nextHourProb >= 30) rainScore += 40;
-                if (currentCape >= 1000) rainScore += 30;
-                if (parseFloat(dpSpread) <= 2) rainScore += 20;
-                if (cur.relative_humidity_2m >= 90) rainScore += 10;
+                const sumberAktif = window._sumberDataCuacaAktif || "openmeteo";
+                const capeValid = (sumberAktif === "openmeteo"); // CAPE hanya dipercaya jika dari Open-Meteo asli
+
+                if (nextHourProb >= 50) rainScore += 40;
+                if (capeValid && currentCape >= 1500) {
+                    rainScore += 30;
+                } else if (!capeValid && nextHourProb >= 40) {
+                    // Kompensasi: tanpa CAPE valid, beri bobot tambahan pada probabilitas hujan
+                    // supaya prediksi tidak bias terlalu rendah saat fallback aktif
+                    rainScore += 15;
+                }
+                if (parseFloat(dpSpread) <= 1) rainScore += 20;
+                if (cur.relative_humidity_2m >= 95) rainScore += 10;
+
+                // Validator silang: jika hujan aktual saat ini 0mm DAN
+                // kode cuaca saat ini bukan presipitasi (code 0,1,2,3,45,48),
+                // turunkan skor maksimal jadi "Sedang" agar tidak overclaim.
+                const kodeNonPresipitasi = [0, 1, 2, 3, 45, 48].includes(cur.weather_code);
+                const tidakAdaHujanSaatIni = (cur.rain || 0) === 0;
+                if (kodeNonPresipitasi && tidakAdaHujanSaatIni && rainScore > 65) {
+                    rainScore = 65;
+                }
 
                 const elHujan = document.getElementById('prediksiHujan');
                 const txtHujan = document.getElementById('hujanNext');
                 if (elHujan) {
                     elHujan.style.display = 'block';
                     if (rainScore >= 70) {
-                        txtHujan.innerHTML = `⛈️ <b>Hujan Sangat Mungkin</b><br><small>(Skor: ${rainScore}/100)</small>`;
+                        txtHujan.innerHTML = `⛈️ <b>Indikasi Hujan Kuat (1 Jam ke Depan)</b><br><small>Prediksi berbasis model atmosfer • Skor: ${rainScore}/100</small>`;
                         elHujan.style.borderLeftColor = 'var(--red-alert)';
-                    } else if (rainScore >= 40) {
-                        txtHujan.innerHTML = `🌦️ <b>Potensi Hujan Lokal</b><br><small>(Skor: ${rainScore}/100)</small>`;
+                    } else if (rainScore >= 45) {
+                        txtHujan.innerHTML = `🌦️ <b>Indikasi Potensi Hujan Lokal (1 Jam ke Depan)</b><br><small>Prediksi berbasis model atmosfer • Skor: ${rainScore}/100</small>`;
                         elHujan.style.borderLeftColor = 'var(--accent-soil)';
                     } else {
-                        txtHujan.innerHTML = `🌤️ <b>Cerah / Berawan</b><br><small>(Skor: ${rainScore}/100)</small>`;
+                        txtHujan.innerHTML = `🌤️ <b>Cerah / Berawan, Hujan Tidak Diprediksi</b><br><small>Skor: ${rainScore}/100</small>`;
                         elHujan.style.borderLeftColor = 'var(--accent-green)';
                     }
                 }
@@ -3191,7 +3286,9 @@ function isWilayahSulsel(lat, lon) {
                 const listHujanHarian = dailyData.precipitation_sum || [];
                 const totalHujanBulanan = listHujanHarian.reduce((total, nilai) => total + (nilai || 0), 0);
 
-                document.getElementById('rainNow').innerHTML = `${(cur.rain || 0).toFixed(1)} mm/jam`;
+                const rainPerJam = (cur.rain || 0) * 4;  // ×4 karena per 15mnt → per jam
+document.getElementById('rainNow').innerHTML = `${rainPerJam.toFixed(1)} mm/jam`;
+// gunakan rainPerJam untuk hitungRisiko*
                 document.getElementById('rainMonthly').innerHTML = `<b>${totalHujanBulanan.toFixed(1)} mm</b>`;
 
                 const getDirection = (degree) => ["Utara","Timur Laut","Timur","Tenggara","Selatan","Barat Daya","Barat","Barat Laut"][Math.round(degree/45)%8];
@@ -3351,148 +3448,94 @@ function isWilayahSulsel(lat, lon) {
             await startBWDCamera();
         }
 
-        document.getElementById('btnCapture').addEventListener('click', async function() {
+        document.getElementById('btnCapture').addEventListener('click', async () => {
     const video = document.getElementById('videoElement');
-    if (!video.srcObject) return;
-
     const canvas = document.getElementById('hiddenCanvas');
     const ctx = canvas.getContext('2d');
-    
-    // Sesuaikan resolusi tangkapan
-    const TARGET_BWD = 640; 
-    canvas.width = TARGET_BWD;
-    canvas.height = TARGET_BWD;
-    ctx.drawImage(video, 0, 0, TARGET_BWD, TARGET_BWD);
+    const btn = document.getElementById('btnCapture');
 
-    // Ekstrak base64
-    const base64Img = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-
-    // Tampilkan preview
-    const previewImg = document.getElementById('bwdPreviewImage');
-    if (previewImg) {
-        previewImg.src = canvas.toDataURL('image/jpeg');
-        previewImg.style.display = 'block';
+    // Pastikan video sedang berjalan dan kamera aktif
+    if (!video.videoWidth || !currentStream) {
+        alert("Kamera belum siap, mohon tunggu sebentar.");
+        return;
     }
 
+    // Ambil ukuran asli frame video ke canvas sementara
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    // Resize ke 640x640 (center-crop) sebelum dikirim ke AppScript
+    const TARGET_BWD = 640;
+    const exportCanvas = document.createElement('canvas');
+    const exportCtx = exportCanvas.getContext('2d');
+    exportCanvas.width  = TARGET_BWD;
+    exportCanvas.height = TARGET_BWD;
+
+    // Center-crop: ambil area persegi di tengah frame video
+    const srcSizeBWD = Math.min(video.videoWidth, video.videoHeight);
+    const srcXBWD    = (video.videoWidth  - srcSizeBWD) / 2;
+    const srcYBWD    = (video.videoHeight - srcSizeBWD) / 2;
+
+    // Filter brightness & contrast agar AI lebih akurat membaca warna daun
+    exportCtx.filter = 'brightness(1.05) contrast(1.1)';
+    exportCtx.drawImage(canvas, srcXBWD, srcYBWD, srcSizeBWD, srcSizeBWD, 0, 0, TARGET_BWD, TARGET_BWD);
+
+    // Ubah gambar menjadi format base64 640x640
+    const base64Img = exportCanvas.toDataURL('image/jpeg', 0.82).split(',')[1];
+
+    // --- TAMPILKAN PREVIEW FOTO ---
+    const previewImg = document.getElementById('bwdPreviewImage');
+    if (previewImg) {
+        previewImg.src = canvas.toDataURL('image/jpeg'); 
+        previewImg.style.display = 'block';
+    }
+    
+    // Sembunyikan kotak fokus hijau agar tidak menimpa hasil jepretan di layar
     const focusBox = document.getElementById('focusBox');
     if (focusBox) focusBox.style.display = 'none';
 
-    // Ubah status tombol sesuai instruksi (hanya teks)
-    const btn = document.getElementById('btnCapture');
-    btn.innerHTML = "MENGANALISIS AI...";
+    // Ubah status tombol UI menjadi loading
+    const originalText = btn.innerText;
+    btn.innerHTML = "MENGANALISIS AI..."; 
     btn.disabled = true;
     btn.style.opacity = "0.7";
-
+    
     const outputDiv = document.getElementById('outputBWD');
     outputDiv.innerHTML = `
         <div style="text-align: center; color: var(--accent-bwd); font-size: 0.85rem; margin-top: 15px;">
-            Memproses deteksi daun...
+            <div class="animasi-loading-kalender" style="color:var(--accent-bwd);">Menganalisis tingkat Nitrogen daun...</div>
         </div>`;
 
     try {
-        // Gunakan text/plain agar tidak memicu preflight CORS error di App Script
+        // Kirim HTTP POST ke Web App Google Apps Script BWD
         const res = await fetch(URL_BWD, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8' 
-            },
-            body: JSON.stringify({ 
-                image: base64Img 
-            })
+            body: JSON.stringify({ image: base64Img })
         });
-
-        const textRes = await res.text();
-        let data;
-        try {
-            data = JSON.parse(textRes);
-        } catch (parseError) {
-            throw new Error("Format respons server tidak dikenali.");
-        }
-
-        // Cek jika Apps Script mereturn error dari blok catch
-        if (data.error) {
-            throw new Error(data.error);
-        }
-
-        // Jika tidak ada deteksi daun
-        if (!data.detections || data.detections.length === 0) {
-            outputDiv.innerHTML = `
-                <div style="color:#ef4444; text-align:center; padding:15px; border: 1px solid #ef4444; border-radius: 8px; margin-top: 10px;">
-                    Daun tidak terdeteksi dengan jelas atau tingkat keyakinan AI rendah. Coba posisikan daun lebih dekat.
-                </div>
-                <button class="btn-main" onclick="ujiUlangBWD()" style="background: #333; margin-top: 15px;">UJI ULANG</button>
-            `;
-            return;
-        }
-
-        // Ambil hasil terbaik (index 0) sesuai logika Apps Script
-        const bestDetection = data.detections[0];
-        const warnaDaun = data.leafColors[0];
         
-        // Translasi hasil ke informasi BWD dan Rekomendasi
-        let skalaInfo = "";
-        let rekomendasi = "";
-        let warnaHex = "#2ecc71"; 
+        const data = await res.json();
         
-        switch(warnaDaun) {
-            case "yellow":
-                skalaInfo = "Skala BWD < 3 (Kuning)";
-                rekomendasi = "Kekurangan Nitrogen parah. Segera aplikasikan pupuk.";
-                warnaHex = "#f1c40f";
-                break;
-            case "yellowish green":
-                skalaInfo = "Skala BWD 3 (Hijau Kekuningan)";
-                rekomendasi = "Kadar Nitrogen rendah. Waktunya aplikasi pupuk susulan.";
-                warnaHex = "#9acd32";
-                break;
-            case "light green":
-                skalaInfo = "Skala BWD 4 (Hijau Terang)";
-                rekomendasi = "Kadar Nitrogen optimal. Pertahankan kondisi ini.";
-                warnaHex = "#2ecc71";
-                break;
-            case "green":
-                skalaInfo = "Skala BWD 5 (Hijau)";
-                rekomendasi = "Nitrogen tinggi. Tunda pemupukan untuk mencegah rebah.";
-                warnaHex = "#27ae60";
-                break;
-            case "dark green":
-                skalaInfo = "Skala BWD > 5 (Hijau Gelap)";
-                rekomendasi = "Nitrogen sangat tinggi. Hentikan pemupukan N.";
-                warnaHex = "#1e8449";
-                break;
-            default:
-                skalaInfo = "Skala tidak diketahui";
-                rekomendasi = "Lakukan pemindaian ulang.";
-                warnaHex = "#888";
-        }
-
-        outputDiv.innerHTML = `
-            <div class="info-box" style="border-left-color: ${warnaHex}; margin-top: 15px;">
-                <strong>Hasil Deteksi AI:</strong><br>
-                <span style="font-size: 1.1rem; font-weight: bold; color: ${warnaHex};">${skalaInfo}</span><br>
-                <span style="font-size: 0.8rem; color: #aaa;">Keyakinan: ${Math.round(bestDetection.confidence * 100)}% | Kelas: ${bestDetection.class}</span>
-            </div>
-            <div class="info-box" style="border-left-color: var(--accent-soil); margin-top: 10px;">
-                <strong>Rekomendasi:</strong><br>
-                <span>${rekomendasi}</span>
-            </div>
-            ${data.outputImage ? `<img src="data:image/jpeg;base64,${data.outputImage}" style="width:100%; border-radius:8px; margin-top:15px; border:1px solid #333;" alt="Gambar Deteksi AI">` : ''}
-            <button class="btn-main" onclick="ujiUlangBWD()" style="background: var(--accent-bwd); margin-top: 15px;">UJI ULANG</button>
-        `;
+        // Hentikan kamera perangkat untuk menghemat baterai HP
+        stopCamera();
+        
+        // Teruskan data ke fungsi global penampil hasil AI
+        currentMode = 'bwd';
+        tampilkanHasil(data);
 
     } catch (err) {
-        outputDiv.innerHTML = `
-            <div style="color:#ef4444; text-align:center; padding:15px; border: 1px solid #ef4444; border-radius: 8px; margin-top: 10px;">
-                <strong>Gagal memproses data.</strong><br>
-                <span style="font-size: 0.85rem;">Pesan: ${err.message}</span><br>
-                <button class="btn-main" onclick="ujiUlangBWD()" style="background: #333; margin-top: 10px;">KEMBALI</button>
-            </div>`;
+        console.error(err);
+        outputDiv.innerHTML = `<div class="error" style="display:block; text-align:center;">Gagal memproses gambar. Periksa koneksi internet atau URL Apps Script.</div>`;
+        
+        // Jika terjadi error (misal sinyal putus), kembalikan UI ke mode kamera live
+        if (previewImg) previewImg.style.display = 'none';
+        if (focusBox) focusBox.style.display = 'block';
+        
     } finally {
-        // Kembalikan tombol menggunakan teks murni
-        btn.innerHTML = "TANGKAP FOTO";
+        // Kembalikan tombol ke kondisi semula
+        btn.innerText = originalText;
         btn.disabled = false;
         btn.style.opacity = "1";
-        btn.style.display = "none";
     }
 });
         async function mulaiAnalisis() {
@@ -5222,11 +5265,15 @@ async function prosesAnalisisKalender() {
         const riskGen = hitungRisikoDinamis(tglGeneratif.getMonth(), "Generatif");
         const riskPanen = hitungRisikoDinamis(tglPanen.getMonth(), "Panen");
 
-        const dataSkor = [riskTanam.skor, riskVeg.skor, riskGen.skor, riskPanen.skor];
+                const dataSkor = [riskTanam.skor, riskVeg.skor, riskGen.skor, riskPanen.skor];
+        // Kumpulkan status cuaca singkat per fase, untuk ditampilkan
+        // berdampingan dengan persentase risiko di grafik.
+        const dataStatus = [riskTanam.statusCuaca, riskVeg.statusCuaca, riskGen.statusCuaca, riskPanen.statusCuaca];
         
         judulChart.innerHTML = judulChart.dataset.asli; // Kembalikan judul asli
         bungkusChart.style.display = "block";
-        renderKalenderChart(labels, dataSkor);
+        renderKalenderChart(labels, dataSkor, dataStatus);
+
         
         // Muat grafik iklim makro, SST lokal, dan anomali suhu laut
         loadGlobalClimateIndices();
@@ -5269,100 +5316,134 @@ async function prosesAnalisisKalender() {
         switchMode('cuaca');
 
         async function analisisVarietasPadi() {
-            const divOutput = document.getElementById("outputHasilVarietas");
-            const btnWA = document.getElementById("btnKirimWAVarietas");
-            const btnCopy = document.getElementById("btnCopyVarietas");
-            
-            const targetUmur = parseInt(document.getElementById("input-umur-var").value);
-            const curahHujan = document.getElementById("input-hujan-var").value; 
-            const tipeLahan = document.getElementById("input-lahan-var").value;   
+    const divOutput = document.getElementById("outputHasilVarietas");
+    const btnWA = document.getElementById("btnKirimWAVarietas");
+    const btnCopy = document.getElementById("btnCopyVarietas");
+    
+    const targetUmur = parseInt(document.getElementById("input-umur-var").value);
+    const curahHujan = document.getElementById("input-hujan-var").value; 
+    const tipeLahan = document.getElementById("input-lahan-var").value;   
 
-            if (!targetUmur) {
-                alert("⚠️ Mohon isi Target Umur Panen!");
-                return;
+    if (!targetUmur) {
+        alert("⚠️ Mohon isi Target Umur Panen!");
+        return;
+    }
+
+    divOutput.style.display = "block";
+    divOutput.innerHTML = "🔍 Mengambil data & menganalisis kesesuaian lahan...";
+    if (btnWA) btnWA.style.display = "none";
+    if (btnCopy) btnCopy.style.display = "none";
+
+    try {
+        const URL_DB = "https://script.google.com/macros/s/AKfycbyZkUpdSU4mDLF53yaZHCbxW32V-gTGE9q_LorGMYrcul1cA3CEbOot-Ld-1e3flQn6vQ/exec";
+        const response = await fetch(URL_DB);
+        const data = await response.json();
+
+        const inputLahan = tipeLahan.toLowerCase();
+        const inputHujan = curahHujan.toLowerCase();
+
+        // 1. Berikan skor untuk setiap varietas berdasarkan kecocokan
+        let dataDenganSkor = data.map(item => {
+            let skor = 0;
+            const umurVarietas = parseInt(item.umur);
+
+            // Cek Umur (Bobot besar jika sangat mendekati target)
+            if (!isNaN(umurVarietas)) {
+                const selisihUmur = Math.abs(umurVarietas - targetUmur);
+                if (selisihUmur <= 3) skor += 40;       // Sangat cocok
+                else if (selisihUmur <= 7) skor += 25;  // Cocok
+                else if (selisihUmur <= 14) skor += 10; // Masih bisa ditoleransi
             }
 
-            divOutput.style.display = "block";
-            divOutput.innerHTML = "🔍 Mengambil data & menganalisis kesesuaian lahan...";
+            // Cek Lahan (Bobot besar)
+            if (item.lahan && item.lahan.toLowerCase().includes(inputLahan)) {
+                skor += 35;
+            }
+
+            // Cek Hujan (Bobot menengah)
+            if (item.curahHujanDb && item.curahHujanDb.toLowerCase().includes(inputHujan)) {
+                skor += 25;
+            }
+
+            return { ...item, skorKecocokan: skor };
+        });
+
+        // 2. Buang yang skornya terlalu rendah (misal di bawah 30, berarti tidak relevan)
+        let hasil = dataDenganSkor.filter(item => item.skorKecocokan >= 30);
+
+        // 3. Urutkan dari skor tertinggi. Jika skor sama, urutkan berdasarkan potensi hasil.
+        hasil.sort((a, b) => {
+            if (b.skorKecocokan !== a.skorKecocokan) {
+                return b.skorKecocokan - a.skorKecocokan;
+            }
+            // Tie-breaker: Potensi hasil (mengubah koma ke titik agar terbaca sebagai desimal)
+            const potA = parseFloat((a.potensi || "0").toString().replace(/,/g, '.')) || 0;
+            const potB = parseFloat((b.potensi || "0").toString().replace(/,/g, '.')) || 0;
+            return potB - potA;
+        });
+
+        // 4. Ambil maksimal 20 data teratas
+        hasil = hasil.slice(0, 20);
+
+        if (hasil.length > 0) {
+            let html = `<h4 style="color:var(--accent-green); margin-bottom:15px;">🌱 Top ${hasil.length} Rekomendasi Varietas Terbaik:</h4>`;
+            
+            hasilTeksWAVarietas = `*SMART FARMING - PPL BPP BOLA*\n` +
+                                  `*REKOMENDASI VARIETAS PADI*\n` +
+                                  `----------------------------------------\n` +
+                                  `⛰️ Tipe Lahan: ${tipeLahan.toUpperCase()}\n` +
+                                  `🌧️ Curah Hujan: ${curahHujan.toUpperCase()}\n` +
+                                  `⏱️ Target Umur: ${targetUmur} Hari\n` +
+                                  `----------------------------------------\n\n` +
+                                  `*Top ${hasil.length} Varietas yang Direkomendasikan:*\n\n`;
+
+            hasil.forEach((v, index) => {
+                html += `
+                <div class="leaf-card" style="border-left: 4px solid var(--accent-green); background: rgba(0, 0, 0, 0.4); padding: 15px; margin-bottom: 15px; border-radius: 10px;">
+                    <strong style="color: var(--accent-green); font-size: 1.2rem;">${index + 1}. ${v.nama}</strong> <span style="font-size:0.8rem; color:#888;">(Skor: ${v.skorKecocokan})</span><br>
+                    <small style="color: #ccc;">⏱️ Umur: <b>${v.umur} HST</b> | 📊 Potensi: <b>${v.potensi} Ton/Ha</b></small>
+                    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0;">
+                    <small style="display: block; margin-bottom: 4px; color: #e0e0e0;">🛡️ <b>Tahan:</b> ${v.tahanHama || '-'} | ${v.tahanPenyakit || '-'}</small>
+                    <small style="display: block; margin-bottom: 4px; color: #ff5555;">⚠️ <b>Rentan:</b> ${v.rentanHama || '-'} | ${v.rentanPenyakit || '-'}</small>
+                    <small style="display: block; color: #00bfff;">🌍 <b>Adaptasi (m):</b> ${v.adaptasi || '-'}</small>
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                        <small style="color: #fbbf24; font-style: italic;">📝 <b>Catatan:</b> ${v.catatan || '-'}</small>
+                    </div>
+                </div>`;
+
+                hasilTeksWAVarietas += `${index + 1}. *${v.nama.toUpperCase()}* (Skor: ${v.skorKecocokan})\n` +
+                                       `    • Umur Panen: ${v.umur} HST\n` +
+                                       `    • Potensi Hasil: ${v.potensi} Ton/Ha\n` +
+                                       `    • Ketahanan: ${v.tahanHama || '-'} | ${v.tahanPenyakit || '-'}\n` +
+                                       `    • Kerentanan: ${v.rentanHama || '-'} | ${v.rentanPenyakit || '-'}\n` +
+                                       `    • Rekomendasi Lahan: ${v.adaptasi || '-'}\n` +
+                                       `    • Catatan Tambahan: ${v.catatan || '-'}\n\n`; 
+            });
+
+            hasilTeksWAVarietas += `_Diproduksi Otomatis oleh Sistem Aplikasi Penyuluh Milenial Wajo_`;
+
+            divOutput.innerHTML = html;
+            
+            if (btnWA) btnWA.style.display = "block";
+            if (btnCopy) btnCopy.style.display = "block";
+
+        } else {
+            divOutput.innerHTML = `
+                <div style="text-align:center; padding:20px; color:#ff5555;">
+                    ❌ Tidak ditemukan varietas yang memiliki tingkat kecocokan memadai untuk kondisi lahan <b>${tipeLahan}</b> dengan curah hujan <b>${curahHujan}</b> pada kisaran umur tersebut.
+                </div>`;
+            hasilTeksWAVarietas = "";
             if (btnWA) btnWA.style.display = "none";
             if (btnCopy) btnCopy.style.display = "none";
-
-            try {
-                const URL_DB = "https://script.google.com/macros/s/AKfycbyZkUpdSU4mDLF53yaZHCbxW32V-gTGE9q_LorGMYrcul1cA3CEbOot-Ld-1e3flQn6vQ/exec";
-                const response = await fetch(URL_DB);
-                const data = await response.json();
-
-                const hasil = data.filter(item => {
-                    const inputLahan = tipeLahan.toLowerCase();
-                    const inputHujan = curahHujan.toLowerCase();
-                    const umurVarietas = parseInt(item.umur);
-
-                    const cocokUmur = umurVarietas >= (targetUmur - 7) && umurVarietas <= (targetUmur + 7);
-                    const cocokLahan = item.lahan ? item.lahan.toLowerCase().includes(inputLahan) : true;
-                    const cocokHujan = item.curahHujanDb ? item.curahHujanDb.toLowerCase().includes(inputHujan) : true;
-
-                    return cocokUmur && cocokLahan && cocokHujan;
-                });
-
-                if (hasil.length > 0) {
-                    let html = `<h4 style="color:var(--accent-green); margin-bottom:15px;">🌱 Hasil Rekomendasi Varietas Cocok:</h4>`;
-                    
-                    hasilTeksWAVarietas = `*SMART FARMING - PPL BPP BOLA*\n` +
-                                          `*REKOMENDASI VARIETAS PADI SPEADSHEET*\n` +
-                                          `----------------------------------------\n` +
-                                          `⛰️ Tipe Lahan: ${tipeLahan.toUpperCase()}\n` +
-                                          `🌧️ Curah Hujan: ${curahHujan.toUpperCase()}\n` +
-                                          `⏱️ Target Umur: ${targetUmur} Hari (Batas Toleransi: ${targetUmur - 5}-${targetUmur + 5} hari)\n` +
-                                          `----------------------------------------\n\n` +
-                                          `*Daftar Varietas yang Direkomendasikan:*\n\n`;
-
-                    hasil.forEach((v, index) => {
-                        html += `
-                        <div class="leaf-card" style="border-left: 4px solid var(--accent-green); background: rgba(0, 0, 0, 0.4); padding: 15px; margin-bottom: 15px; border-radius: 10px;">
-                            <strong style="color: var(--accent-green); font-size: 1.2rem;">${index + 1}. ${v.nama}</strong><br>
-                            <small style="color: #ccc;">⏱️ Umur: <b>${v.umur} HST</b> | 📊 Potensi: <b>${v.potensi} Ton/Ha</b></small>
-                            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0;">
-                            <small style="display: block; margin-bottom: 4px; color: #e0e0e0;">🛡️ <b>Tahan:</b> ${v.tahanHama || '-'} | ${v.tahanPenyakit || '-'}</small>
-                            <small style="display: block; margin-bottom: 4px; color: #ff5555;">⚠️ <b>Rentan:</b> ${v.rentanHama || '-'} | ${v.rentanPenyakit || '-'}</small>
-                            <small style="display: block; color: #00bfff;">🌍 <b>Adaptasi (m):</b> ${v.adaptasi || '-'}</small>
-                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                                <small style="color: #fbbf24; font-style: italic;">📝 <b>Catatan:</b> ${v.catatan || '-'}</small>
-                            </div>
-                        </div>`;
-
-                        hasilTeksWAVarietas += `${index + 1}. *${v.nama.toUpperCase()}*\n` +
-                                               `    • Umur Panen: ${v.umur} Hari\n` +
-                                               `    • Potensi Hasil: ${v.potensi} Ton/Ha\n` +
-                                               `    • Ketahanan: ${v.tahanHama || '-'} | ${v.tahanPenyakit || '-'}\n` +
-                                               `    • Kerentanan: ${v.rentanHama || '-'} | ${v.rentanPenyakit || '-'}\n` +
-                                               `    • Rekomendasi Lahan: ${v.adaptasi || '-'}\n` +
-                                               `    • Catatan Tambahan: ${v.catatan || '-'}\n\n`; 
-                    });
-
-                    hasilTeksWAVarietas += `_Diproduksi Otomatis oleh Sistem Aplikasi Penyuluh Milenial Wajo_`;
-
-                    divOutput.innerHTML = html;
-                    
-                    if (btnWA) btnWA.style.display = "block";
-                    if (btnCopy) btnCopy.style.display = "block";
-
-                } else {
-                    divOutput.innerHTML = `
-                        <div style="text-align:center; padding:20px; color:#ff5555;">
-                            ❌ Tidak ditemukan varietas yang cocok di database untuk kondisi lahan <b>${tipeLahan}</b> dengan curah hujan <b>${curahHujan}</b> pada kisaran umur tersebut.
-                        </div>`;
-                    hasilTeksWAVarietas = "";
-                    if (btnWA) btnWA.style.display = "none";
-                    if (btnCopy) btnCopy.style.display = "none";
-                }
-
-            } catch (e) {
-                divOutput.innerHTML = `<div style="color:#ff5555;">❌ Gagal memuat database varietas: ${e.message}</div>`;
-                hasilTeksWAVarietas = "";
-                if (btnWA) btnWA.style.display = "none";
-                if (btnCopy) btnCopy.style.display = "none";
-            }
         }
+
+    } catch (e) {
+        divOutput.innerHTML = `<div style="color:#ff5555;">❌ Gagal memuat database varietas: ${e.message}</div>`;
+        hasilTeksWAVarietas = "";
+        if (btnWA) btnWA.style.display = "none";
+        if (btnCopy) btnCopy.style.display = "none";
+    }
+}
 
         function kirimVarietasKeWhatsApp() {
             if (!hasilTeksWAVarietas) { 
@@ -5376,15 +5457,84 @@ async function prosesAnalisisKalender() {
             const text = document.getElementById("outputHasilVarietas").innerText;
             navigator.clipboard.writeText(text).then(() => alert("📋 Rekomendasi varietas berhasil disalin!"));
         }
-        
+
+    // PATCH JS: Tambahkan opsi ini ke dalam konfigurasi Chart Anda (bagian 'options')
+const chartNeonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            labels: {
+                color: '#e0e0e0',
+                font: { size: 12 }
+            }
+        },
+        tooltip: {
+            backgroundColor: 'rgba(11, 21, 40, 0.9)',
+            titleColor: '#00ff88',
+            bodyColor: '#ffffff',
+            borderColor: 'rgba(0, 255, 136, 0.5)',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+                label: function(context) {
+                    let label = context.dataset.label || '';
+                    let skor = context.parsed.y;
+                    if (label) label += ': ';
+                    label += skor;
+                    
+                    // Rekomendasi dinamis saat grafik disentuh/di-hover
+                    if (skor > 70) return label + ' (Ancaman Tinggi - Antisipasi saluran drainase)';
+                    if (skor > 40) return label + ' (Waspada - Pantau curah hujan)';
+                    return label + ' (Aman)';
+                }
+            }
+        }
+    },
+    scales: {
+        x: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#a0aabf' }
+        },
+        y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#a0aabf' },
+            beginAtZero: true
+        }
+    }
+};
+
+// PATCH JS: Tambahkan ke dalam dataset grafik Anda agar selaras dengan tema neon
+const datasetNeonStyle = {
+    borderColor: '#00ff88',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    borderWidth: 2,
+    tension: 0.4, // Membuat garis grafik melengkung halus (smooth)
+    pointBackgroundColor: '#0b1528',
+    pointBorderColor: '#00ff88',
+    pointBorderWidth: 2,
+    pointRadius: 4,
+    pointHoverRadius: 6
+};
         // 1. Fungsi untuk merender grafik batang (Bar Chart) Kalender Iklim
-function renderKalenderChart(labels, dataSkor) {
+function renderKalenderChart(labels, dataSkor, dataStatus = []) {
     const ctx = document.getElementById('kalenderChart').getContext('2d');
     
     // Hancurkan chart lama jika sudah ada agar tidak menumpuk/glitch
     if (kalenderChartInstance) {
         kalenderChartInstance.destroy();
     }
+    const singkatkanStatus = (status) => {
+        if (!status) return "";
+        const s = status.toLowerCase();
+        if (s.includes("sangat kering")) return "Kering Ekstrem";
+        if (s.includes("cenderung kering")) return "Kering";
+        if (s.includes("sangat basah")) return "Basah Ekstrem";
+        if (s.includes("cenderung basah")) return "Basah";
+        if (s.includes("normal")) return "Normal";
+        return status;
+    };
+    const labelStatusSingkat = dataStatus.map(singkatkanStatus);
 
     // --- EFEK FUTURISTIK 1: Gradient Fill Neon ---
     const gradientFill = ctx.createLinearGradient(0, 0, 0, 300);
@@ -5457,25 +5607,31 @@ function renderKalenderChart(labels, dataSkor) {
                     cornerRadius: 12,
                     callbacks: {
                         label: function(context) {
-                            return ' Tingkat Risiko: ' + context.raw + '%';
+                            // ✨ TAMBAHKAN Math.round() DI SINI ✨
+                            return ' Tingkat Risiko: ' + Math.round(context.raw) + '%';
                         }
                     }
                 },
                 // --- EFEK FUTURISTIK 4: Angka di atas grafik ---
-                datalabels: {
-                    color: bgColors, // Angka mengikuti warna indikator bahaya
+                                datalabels: {
+                    color: bgColors, 
                     anchor: 'end',
                     align: 'top',
                     offset: 4,
                     font: {
                         family: "'Plus Jakarta Sans', sans-serif",
                         weight: '800',
-                        size: 11
+                        size: 10
                     },
-                    formatter: function(value) {
-                        return value + '%';
+                    textAlign: 'center',
+                    formatter: function(value, context) {
+                        const persen = Math.round(value) + '%';
+                        const status = labelStatusSingkat[context.dataIndex] || '';
+                        // Dua baris: persentase di atas, keterangan kategori di bawah
+                        return status ? [persen, status] : persen;
                     }
                 }
+
             },
             scales: {
                 y: { 
@@ -5731,23 +5887,6 @@ function tambahkanPesanLayar(pengirim, teks, warnaAksen) {
     areaPesan.appendChild(bubble);
 
     areaPesan.scrollTop = areaPesan.scrollHeight;
-}
-
-function startBWDCamera() {
-    const video = document.getElementById('videoElement');
-    if (!video) return;
-
-    navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-    })
-    .then(stream => {
-        currentStream = stream;
-        video.srcObject = stream;
-    })
-    .catch(err => {
-        console.error("Camera error:", err);
-        alert("Gagal mengakses kamera. Pastikan izin kamera diberikan.");
-    });
 }
 
 // ====================================================================
@@ -6072,7 +6211,7 @@ async function cariHargaPestisida() {
 <script src="patch_cuaca_langsung.js"></script>
     <script src="patch_peringatan_ekstrem.js"></script>
 <script src="patch_peta_koordinat.js"></script>
-
+<script src="patch_kalender_google.js"></script>
 <script>
 // ================================================================
 //  GUARD: aktifkanGPS — pisahkan antara mode cuaca dan ukur lahan
@@ -6120,11 +6259,13 @@ async function cariHargaPestisida() {
     console.log('✅ [guard-gps] aktifkanGPS sudah dipisahkan: cuaca vs ukur lahan.');
 })();
     </script> 
+    <script src="patch_enso_iod_noaa1.js"></script>
     <script src="patch_enso_iod_noaa.js"></script>
     <script src="patch_perbaikan_ilmiah.js"></script>
     <script src="patch_kuota_harian.js"></script>
     <script src="patch_curah_hujan_era5.js"></script>
     <script src="patch_risiko_iklim.js"></script>
+    <script src="patch_pestisida.js"></script>
     <style>
     #wrapperRadarMap {
         position: relative;
@@ -6319,9 +6460,14 @@ async function cariHargaPestisida() {
     <script src="patch_jadwal_tanam_otomatis.js"></script>
     
     <script src="patch_fix_bobot_scoring_v1.js"></script>
+    <script src="patch_bugfix_v1.js"></script>
     <script src="patch_jadwal_manual_trigger.js"></script>
+    <script src="patch_jadwal_tapin_tabela_fix.js"></script>
 <script src="patch_riwayat_analisis.js"></script>  
 <script src="patch_perbaikan_kontras.js"></script> 
-  
+    
+   <script src="patch_nasional.js"></script> 
+    <script src="patch_nasional_v4.js"></script>
+   <script src=" patch_iklim_terpadu_v1.js"></script>
 </body>
 </html>
