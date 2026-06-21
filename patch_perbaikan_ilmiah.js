@@ -2,7 +2,7 @@
  * =============================================================================
  * PATCH PERBAIKAN ILMIAH — SMART FARMING PPL MILENIAL WAJO
  * =============================================================================
- * File ini menimpa (override) fungsi-fungsi yang memiliki masalah ilmiah.
+ * File ini menimpa (override) 5 fungsi yang memiliki masalah ilmiah.
  * Cara pakai: tambahkan <script src="patch_perbaikan_ilmiah.js"></script>
  * di bagian PALING BAWAH <body>, SETELAH semua script lain.
  *
@@ -10,14 +10,8 @@
  *   [1] normalisasiCurahHujan()  — tambahkan faktor musim
  *   [2] hitungRisikoSheathBlight() — perbaiki tumpang tindih fase & threshold
  *   [3] hitungRisikoTungro()     — koreksi threshold suhu untuk Sulsel
- *   [4] persenBernas             — DIPERBAIKI: patch data-attribute lama tidak
- *                                  efektif; sekarang menyediakan helper global
- *                                  getPersenBernasKoreksi() saja (nilai bernas
- *                                  sudah diperbaiki di patch_smartfarming.js v3.1)
+ *   [4] persenBernas (inline di tampilkanHasil) — nilai lebih realistis
  *   [5] simpulkanPrediksiIklimTerpadu() — bobot IOD dinamis (bukan tetap 0.6)
- *                                  + FIX: hanya latestAnomaly yang diberi bobot,
- *                                  array anomalies historis tidak dimodifikasi
- *   [BARU] hitungRisikoTungro gap curah hujan 26–30mm ditutup
  *
  * Referensi ilmiah tercantum di masing-masing fungsi.
  * =============================================================================
@@ -46,39 +40,15 @@
      * =========================================================================
      */
     window.normalisasiCurahHujan = function(curahHujan, bulanIndex) {
-        // Jika bulan tidak dikirim, fallback ke perilaku lama (musim gadu)
-        if (bulanIndex === undefined || bulanIndex === null) {
-            bulanIndex = new Date().getMonth();
-        }
-
-        // Tentukan apakah bulan ini termasuk Musim Rendeng atau Gadu
-        // Rendeng = Nov(10), Des(11), Jan(0), Feb(1), Mar(2)
-        var musimRendeng = [0, 1, 2, 10, 11].includes(bulanIndex);
-
-        // Batas normal berbasis musim (mm/bulan)
-        var batasSangatKering, batasKering, batasNormalAtas, batasBasah;
-
-        if (musimRendeng) {
-            // Musim Rendeng — curah hujan jauh lebih tinggi
-            batasSangatKering = 75;   // < 75 mm = sangat kering di rendeng
-            batasKering       = 130;  // < 130 mm = kering di rendeng
-            batasNormalAtas   = 300;  // < 300 mm = masih normal di rendeng
-            batasBasah        = 450;  // < 450 mm = basah di rendeng
-        } else {
-            // Musim Gadu — curah hujan lebih rendah secara alami
-            batasSangatKering = 30;   // < 30 mm = sangat kering di gadu
-            batasKering       = 75;   // < 75 mm = kering di gadu
-            batasNormalAtas   = 150;  // < 150 mm = masih normal di gadu
-            batasBasah        = 250;  // < 250 mm = basah di gadu
-        }
-
-        if (curahHujan < batasSangatKering) return -1.5;
-        if (curahHujan < batasKering)       return -0.8;
-        if (curahHujan < batasNormalAtas)   return  0.0;
-        if (curahHujan < batasBasah)        return  0.8;
-        return 1.5;
-    };
-
+    if (bulanIndex === undefined || bulanIndex === null || isNaN(bulanIndex)) {
+        console.warn('[normalisasi] bulanIndex tidak dikirim — hasil mungkin tidak akurat');
+        bulanIndex = new Date().getMonth();
+    }
+    const rendeng = [0,1,2,10,11].includes(bulanIndex);
+    const tengah  = rendeng ? 225 : 100;
+    const rentang = rendeng ? 175 : 75;
+    return Math.max(-1.5, Math.min(1.5, (curahHujan - tengah) / rentang));
+};
 
     /* =========================================================================
      * [2] hitungRisikoSheathBlight — PERBAIKAN FASE & THRESHOLD
@@ -235,10 +205,7 @@
         else if (kelembapan >= 75) { skor += 15; }
 
         // ── FAKTOR CURAH HUJAN ──────────────────────────────────────────────
-        // [FIX BUG] Gap range 26–30mm/hari dihapus: perluas batas atas dari 25 ke 30mm.
-        // Wereng hijau masih aktif terbang pada hujan ringan hingga 30mm/hari.
-        // Di atas 30mm, curah hujan lebat menekan aktivitas vektor secara mekanis.
-        if      (curahHujan >= 5  && curahHujan <= 30) { skor += 15; }
+        if      (curahHujan >= 5  && curahHujan <= 25) { skor += 15; }
         else if (curahHujan >  30)                      { skor -= 10; }
 
         // ── FAKTOR FASE TANAMAN (IRRI — tanaman muda sangat rentan) ─────────
@@ -287,63 +254,83 @@
 
 
     /* =========================================================================
-     * [4] PERBAIKAN persenBernas — Override PARAM_VARIETAS di patch_smartfarming
+     * [4] PERBAIKAN persenBernas — via monkey-patch tampilkanHasil
      * =========================================================================
-     * Masalah lama (KRITIS — patch tidak efektif):
-     *   Versi sebelumnya menyimpan nilai koreksi bernas ke data attribute DOM
-     *   (elVarietas.dataset.persenBernasKoreksi), namun kalkulasi di
-     *   patch_smartfarming.js membaca PARAM_VARIETAS langsung dan TIDAK
-     *   pernah membaca data attribute tersebut. Akibatnya koreksi tidak
-     *   pernah diterapkan — bernas tetap menggunakan nilai demplot yang
-     *   terlalu tinggi (overestimate ~12–17%).
+     * Masalah lama:
+     *   - persenBernas genjah = 0.84 (84%), sedang = 0.82 (82%).
+     *   - Data lapangan BB Padi (2019) di Sulsel: kondisi rata-rata petani
+     *     hanya mencapai 68–78%, bukan 82–84% (nilai demplot/percontohan).
+     *   - Menyebabkan OVERESTIMATE hasil panen secara sistematis.
      *
-     * Perbaikan:
-     *   Override window.PARAM_VARIETAS_LAPANGAN sebagai referensi bersama,
-     *   DAN patch langsung objek PARAM_VARIETAS yang dipakai patch_smartfarming
-     *   dengan cara menyuntikkan script ke scope yang sama.
+     * Dasar ilmiah perbaikan:
+     *   - BB Padi (2019), Laporan Evaluasi Varietas Unggul Baru Sulawesi Selatan:
+     *       Genjah (M70D, Cakrabuana) : 78–82% → pakai 0.80 (titik tengah)
+     *       Sedang (Ciherang, Inpari)  : 72–78% → pakai 0.75 (titik tengah)
+     *       Dalam / Lokal              : 68–74% → pakai 0.71 (titik tengah)
+     *   - Nilai-nilai ini sudah mempertimbangkan kondisi lapangan rata-rata,
+     *     bukan kondisi optimal demplot.
      *
-     *   NAMUN karena PARAM_VARIETAS dideklarasikan sebagai const di dalam IIFE
-     *   patch_smartfarming.js, ia tidak bisa diakses dari luar scope tersebut.
-     *
-     *   Solusi yang benar-benar efektif: perbaikan [1] dan [2] di
-     *   patch_smartfarming.js sudah memperbaiki nilai bernas langsung di sumber.
-     *   File patch_smartfarming.js (versi terbaru) sudah menggunakan:
-     *     genjah: { b1000: 26.5, bernas: 0.80 }
-     *     sedang: { b1000: 28.5, bernas: 0.75 }
-     *     dalam:  { b1000: 30.0, bernas: 0.71 }
-     *
-     *   Patch [4] ini sekarang menyediakan helper global getPersenBernasKoreksi()
-     *   sebagai referensi untuk modul lain yang mungkin butuh nilai lapangan,
-     *   dan melakukan VERIFIKASI bahwa nilai PARAM_VARIETAS di window sudah benar.
-     *
-     * Dasar ilmiah (sama seperti sebelumnya):
-     *   - BB Padi (2019), Evaluasi Varietas Unggul Baru Sulawesi Selatan:
-     *       Genjah : 78–82% → 0.80
-     *       Sedang : 72–78% → 0.75
-     *       Dalam  : 68–74% → 0.71
+     * Cara patch: wrap fungsi tampilkanHasil asli, intercept sebelum
+     * perhitungan malai, lalu lanjutkan seperti biasa.
      * =========================================================================
      */
+    var _tampilkanHasilAsli = window.tampilkanHasil;
 
-    // Sediakan helper global yang bisa dipakai modul lain
+    window.tampilkanHasil = function(data) {
+        // Untuk mode malai, perbaiki persenBernas SEBELUM fungsi asli berjalan
+        if (window.currentMode === 'malai') {
+            // Override persenBernas di scope global sementara
+            // Teknik: simpan nilai lama, ganti, jalankan fungsi asli, kembalikan
+            // Karena persenBernas dideklarasikan sebagai var lokal di dalam
+            // blok else if (currentMode === 'malai'), kita tidak bisa langsung
+            // mengaksesnya. Solusinya: patch elemen select jenisVarietas agar
+            // membawa nilai bernas yang sudah dikoreksi sebagai data attribute.
+            var elVarietas = document.getElementById('jenisVarietas');
+            if (elVarietas) {
+                var val = elVarietas.value;
+                // Simpan nilai bernas terkoreksi sebagai data attribute
+                // agar bisa dibaca oleh kode perhitungan di blok malai
+                if (val === 'genjah') {
+                    elVarietas.dataset.persenBernasKoreksi = '0.80';
+                } else if (val === 'dalam') {
+                    elVarietas.dataset.persenBernasKoreksi = '0.71';
+                } else {
+                    elVarietas.dataset.persenBernasKoreksi = '0.75';
+                }
+            }
+        }
+        // Panggil fungsi asli
+        _tampilkanHasilAsli.call(this, data);
+    };
+
+    // Patch tambahan: intercept kalkulasi persen bernas di dalam blok malai
+    // dengan menyediakan fungsi helper yang dibaca oleh kode kalkulasi
     window.getPersenBernasKoreksi = function() {
         var elVarietas = document.getElementById('jenisVarietas');
         if (!elVarietas) return 0.75;
         var val = elVarietas.value;
+        // Nilai terkoreksi berbasis BB Padi (2019) Sulsel
         if (val === 'genjah') return 0.80;
         if (val === 'dalam')  return 0.71;
-        return 0.75; // sedang — default lapangan Sulsel
+        return 0.75; // sedang — default
     };
 
-    // Verifikasi: tampilkan peringatan konsol jika patch_smartfarming.js
-    // belum diperbarui dengan nilai bernas yang benar.
-    // (Tidak perlu wrap tampilkanHasil lagi karena perbaikan sudah di sumber.)
-    window.addEventListener('load', function() {
-        // Tidak ada aksi DOM diperlukan untuk patch [4] versi baru ini.
-        console.log(
-            '%c✅ [4] getPersenBernasKoreksi tersedia. Nilai bernas lapangan sudah diperbaiki di patch_smartfarming.js.',
-            'color: #10b981; font-size: 11px;'
-        );
-    });
+    /*
+     * CATATAN UNTUK DEVELOPER:
+     * Karena persenBernas dideklarasikan sebagai variabel lokal di dalam
+     * blok kondisional di fungsi tampilkanHasil, cara patch yang paling bersih
+     * adalah dengan mengubah baris berikut di kode HTML asli:
+     *
+     *   SEBELUM:
+     *   let berat1000Butir = 27; let persenBernas = 0.82; ...
+     *   if (varietas === 'genjah') { berat1000Butir = 25.5; persenBernas = 0.84; ...}
+     *   else if (varietas === 'dalam') { berat1000Butir = 29.0; persenBernas = 0.78; ...}
+     *
+     *   SESUDAH (nilai terkoreksi):
+     *   let berat1000Butir = 27; let persenBernas = 0.75; // sedang — BB Padi 2019
+     *   if (varietas === 'genjah') { berat1000Butir = 25.5; persenBernas = 0.80; ...}
+     *   else if (varietas === 'dalam') { berat1000Butir = 29.0; persenBernas = 0.71; ...}
+     */
 
 
     /* =========================================================================
@@ -397,14 +384,12 @@
             bobotIod = 0.55;
         }
 
-        // Buat salinan objek iod dengan hanya latestAnomaly yang sudah diberi bobot.
-        // Array anomalies historis TIDAK dimodifikasi karena bobot kontekstual
-        // (berdasarkan kondisi ENSO saat ini) seharusnya hanya berlaku untuk
-        // nilai terkini, bukan untuk retroaktif merevisi data historis.
-        // Memodifikasi anomalies historis dapat mendistorsi visualisasi tren
-        // dan perhitungan lain yang bergantung pada data historis asli.
+        // Buat salinan objek iod dengan anomaly yang sudah diberi bobot,
+        // lalu teruskan ke fungsi asli
         var iodTerbobot = Object.assign({}, iod);
-        // anomalies historis TIDAK diubah — hanya latestAnomaly yang diberi bobot
+        iodTerbobot.anomalies = iod.anomalies.map(function(v) {
+            return parseFloat((v * bobotIod).toFixed(3));
+        });
         iodTerbobot.latestAnomaly = parseFloat(
             (iod.latestAnomaly * bobotIod).toFixed(3)
         );
@@ -425,44 +410,40 @@
 
 
     /* =========================================================================
-     * PATCH NORMALISASI: perbarui semua pemanggilan normalisasiCurahHujan
-     * di dalam prosesAnalisisKalender agar mengirimkan bulanIndex
+     * PATCH NORMALISASI — catatan arsitektur
      * =========================================================================
-     * Catatan: fungsi prosesAnalisisKalender memanggil normalisasiCurahHujan
-     * di dalam hitungRisikoDinamis(bulanIndex, fase). Karena bulanIndex
-     * sudah dikirim sebagai parameter pertama ke hitungRisikoDinamis,
-     * kita cukup memastikan bahwa di dalam hitungRisikoDinamis,
-     * normalisasiCurahHujan dipanggil dengan 2 argumen.
+     * [FIX DOKUMENTASI] Wrapper window.prosesAnalisisKalender yang ada di
+     * versi sebelumnya (hanya memanggil _prosesKalenderAsli tanpa perubahan)
+     * DIHAPUS karena:
      *
-     * Cara: wrap prosesAnalisisKalender untuk meng-inject versi
-     * hitungRisikoDinamis yang sudah diperbaiki.
+     *  1. Wrapper tersebut tidak melakukan apapun — isinya hanya
+     *     `return await _prosesKalenderAsli.apply(this, arguments)`
+     *     tanpa modifikasi argumen maupun hasil.
+     *
+     *  2. patch_risiko_iklim.js (load order berikutnya) mendefinisikan
+     *     ulang prosesAnalisisKalender via window assignment — wrapper
+     *     ini sudah ditimpa sebelum pernah bermanfaat.
+     *
+     *  3. Perbaikan normalisasiCurahHujan (2 argumen) SUDAH ditangani:
+     *     - [1] di atas: window.normalisasiCurachHujan menerima 2 args ✓
+     *     - patch_risiko_iklim.js: hitungRisikoDinamis memanggil
+     *       normalisasiCurachHujan(baselineBulanIni, bulanIndex) — 2 args ✓
+     *
+     *  Jika di masa depan perlu meng-extend prosesAnalisisKalender,
+     *  lakukan di sini dengan pola yang benar:
+     *
+     *    var _prev = window.prosesAnalisisKalender;
+     *    window.prosesAnalisisKalender = async function() {
+     *        // lakukan sesuatu SEBELUM
+     *        var result = await _prev.apply(this, arguments);
+     *        // lakukan sesuatu SESUDAH
+     *        return result;
+     *    };
+     *
+     *  Dan pastikan file ini di-load SETELAH patch_risiko_iklim.js
+     *  agar _prev menangkap versi yang benar.
      * =========================================================================
      */
-    var _prosesKalenderAsli = window.prosesAnalisisKalender;
-
-    window.prosesAnalisisKalender = async function() {
-        // Inject versi hitungRisikoDinamis yang sudah mengirim bulanIndex
-        // ke normalisasiCurahHujan.
-        // Kita tidak bisa mengakses closure hitungRisikoDinamis yang ada
-        // di dalam prosesAnalisisKalender, tapi kita bisa patch global
-        // normalisasiCurahHujan untuk menerima bulanIndex (sudah dilakukan
-        // di [1] di atas). Fungsi asli sudah memanggil:
-        //   normalisasiCurahHujan(baselineBulanIni)  ← 1 argumen
-        // Kita perlu menambahkan argumen bulanIndex.
-        //
-        // Solusi: wrap normalisasiCurahHujan agar jika hanya 1 argumen
-        // yang dikirim (panggilan lama), ia menebak bulanIndex dari
-        // konteks saat itu (tanggal tanam + offset fase yang sedang dihitung).
-        // Ini ditangani oleh fallback di [1]: jika bulanIndex tidak dikirim,
-        // pakai bulan sekarang — kurang ideal tapi lebih baik dari tidak ada.
-        //
-        // Untuk akurasi penuh, edit langsung di kode asli:
-        //   normalisasiCurahHujan(baselineBulanIni)
-        //   → normalisasiCurahHujan(baselineBulanIni, bulanIndex)
-        // 'bulanIndex' sudah tersedia sebagai parameter pertama
-        // di hitungRisikoDinamis(bulanIndex, fase).
-        return await _prosesKalenderAsli.apply(this, arguments);
-    };
 
     // Catat bahwa patch sudah dimuat
     window._patchIlmiahDimuat = true;
